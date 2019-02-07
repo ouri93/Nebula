@@ -1,0 +1,52 @@
+
+
+level03@nebula:/home/flag03$ ls -alR
+.:
+total 6
+drwxr-x--- 3 flag03 level03  103 2011-11-20 20:39 .
+drwxr-xr-x 1 root   root     140 2012-08-27 07:18 ..
+-rw-r--r-- 1 flag03 flag03   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag03 flag03  3353 2011-05-18 02:54 .bashrc
+-rw-r--r-- 1 flag03 flag03   675 2011-05-18 02:54 .profile
+drwxrwxrwx 2 flag03 flag03     3 2012-08-18 05:24 writable.d
+-rwxr-xr-x 1 flag03 flag03    98 2011-11-20 21:22 writable.sh
+
+./writable.d:
+total 0
+drwxrwxrwx 2 flag03 flag03    3 2012-08-18 05:24 .
+drwxr-x--- 3 flag03 level03 103 2011-11-20 20:39 ..
+level03@nebula:/home/flag03$ more writable.sh
+#!/bin/sh
+
+for i in /home/flag03/writable.d/* ; do
+        (ulimit -t 5; bash -x "$i")
+        rm -f "$i"
+done
+
+
+level03@nebula:/home/flag03$ more writable.sh
+#!/bin/sh
+
+for i in /home/flag03/writable.d/* ; do
+        (ulimit -t 5; bash -x "$i")
+        rm -f "$i"
+done
+
+
+level03@nebula:/home/flag03$ ulimit -a
+core file size          (blocks, -c) 0
+data seg size           (kbytes, -d) unlimited
+scheduling priority             (-e) 0
+file size               (blocks, -f) unlimited
+pending signals                 (-i) 7881
+max locked memory       (kbytes, -l) 64
+max memory size         (kbytes, -m) unlimited
+open files                      (-n) 1024
+pipe size            (512 bytes, -p) 8
+POSIX message queues     (bytes, -q) 819200
+real-time priority              (-r) 0
+stack size              (kbytes, -s) 8192
+cpu time               (seconds, -t) 5
+max user processes              (-u) 7881
+virtual memory          (kbytes, -v) unlimited
+file locks                      (-x) unlimited
