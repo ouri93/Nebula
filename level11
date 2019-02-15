@@ -1,0 +1,193 @@
+Question URL: https://exploit.education/nebula/level-11/
+
+Source code:
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/mman.h>
+
+/*
+ * Return a random, non predictable file, and return the file descriptor for
+ * it.
+ */
+
+// getrand() - Create a random filename and open the file. Then delete the
+// file but return its file descriptor.
+int getrand(char **path)
+{
+  char *tmp;
+  int pid;
+  int fd;
+
+  srandom(time(NULL));
+
+  tmp = getenv("TEMP");
+  pid = getpid();
+
+  // asprintf(char **pStr, const char *fmt, ...) - Print to allocate string
+  // pStr will have the string constituting as a given formated.
+  asprintf(path, "%s/%d.%c%c%c%c%c%c", tmp, pid,
+      'A' + (random() % 26), '0' + (random() % 10),
+      'a' + (random() % 26), 'A' + (random() % 26),
+      '0' + (random() % 10), 'a' + (random() % 26));
+  printf("Random file name generated: %s", *path);
+  fd = open(*path, O_CREAT|O_RDWR, 0600);
+  
+  // int unlink(const char *pathname)
+  // unlink()  deletes  a  name  from the file system.  If that name was
+  // the last link to a file and no processes have the file  open  the
+  // file is deleted and the space it was using is made available for reuse.
+  //
+  // If  the  name  was the last link to a file but any processes still have
+  // the file open the file will remain in existence  until  the  last  file
+  // descriptor referring to it is closed.
+
+  // If the name referred to a symbolic link the link is removed.
+
+  // If  the  name  referred  to a socket, fifo or device the name for it is
+  // removed but processes which have the object open may  continue  to  use
+  // it.
+  unlink(*path);
+  return fd;
+}
+
+// process() - Read buffer of the size of length and randomize the content
+// then execute the buffer
+void process(char *buffer, int length)
+{
+  unsigned int key;
+  int i;
+
+  // Use lower 8 bits - Only allow ASC code (0 ~ 255)
+  key = length & 0xff;
+  printf("key: %u", key);
+
+  // ^ - Bitwise exclusve OR operation to randomize buffer value
+  for(i = 0; i < length; i++) {
+      buffer[i] ^= key;
+      key -= buffer[i];
+  }
+  printf("Managled buffer: %s\n", buffer);
+  system(buffer);
+}
+
+#define CL "Content-Length: "
+
+int main(int argc, char **argv)
+{
+  char line[256];
+  char buf[1024];
+  char *mem;
+  int length;
+  int fd;
+  char *path;
+
+  if(fgets(line, sizeof(line), stdin) == NULL) {
+      errx(1, "reading from stdin");
+  }
+
+  // strncmp(const char *s1, const char *s2, size_t n)
+  // Compare two strings, s1 and s2 of the length of n
+  // Return
+  //  - an integer less than 0 if s1 matches less than n bytes
+  //  - 0 if s1 and s2 are matching n bytes
+  //  - an integer greater than 0 if s1 matches greater than n bytes
+  if(strncmp(line, CL, strlen(CL)) != 0) {
+      errx(1, "invalid header");
+  }
+
+  //** int atoi ( const char * str ) **
+  // 1. Interprets the contents of string as an integral number, which is
+  // returned as an int value
+  // 2. First discards as many whitespace characters as necessary until
+  // the First discards as many whitespace characters as necessary until the
+  // first non-whitespace character is found
+  //   - Takes an optional initial plus or minus sign followed by as many
+  //     numerical digits as possible, and interprets them as a numerical
+  //     value
+  // 3. The string can contain additional characters after those that form the
+  // integral number, which are ignored and have no effect on the behavior of
+  // this function.
+  // 4. If str is not a valid integral number, or if no such sequence exists
+  // because either str is empty or it contains only whitespace characters,
+  // no conversion is performed and 0 is returned
+
+  length = atoi(line + strlen(CL));
+  printf("aoti() length: %d : sizeof(buf)%d\n", length, sizeof(buf));
+
+  if(length < sizeof(buf)) {
+
+      // size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)
+      // Return the number of items successfully read(not the number of
+      // characters). fread() does not distinguish between end-of-file and
+      // error, and callers must use feof and ferror to determine which
+      // occurred.
+      if(fread(buf, length, 1, stdin) != length) {
+          printf("buf: %s  :length: %d\n", buf, length);
+          err(1, "fread length");
+      }
+      process(buf, length);
+  } else {
+      int blue = length;
+      int pink;
+
+      fd = getrand(&path);
+
+      while(blue > 0) {
+          printf("blue = %d, length = %d, ", blue, length);
+
+          pink = fread(buf, 1, sizeof(buf), stdin);
+          printf("pink = %d\n", pink);
+
+          if(pink <= 0) {
+              err(1, "fread fail(blue = %d, length = %d)", blue, length);
+          }
+          write(fd, buf, pink);
+
+          blue -= pink;
+      }
+
+      // void *mmap(void *addr, size_t length, int prot, int flags, int fd,
+      // off_t offset) - map or unmap files or devices into memory
+      // Create a new mapping in the virtual address space of the calling
+      // process. New mapping is started from the given addr + offset with
+      // the size of given length. If addr is NULL, then the kernel chooses
+      // the address at which to create the mapping.
+      // prot describes the desired memory protection of the mapping
+      // PROT_READ - Pages may be read
+      // PROT_WRITE - Pages may be written
+      // flags determines whether updates to the mapping are visible to
+      // other processes mapping the same region, and whether updates are
+      // carried through to the underlying file.
+      // MAP_SHARED - Share this mapping
+      // MAP_PRIVATE - Create a private copy-on-write mapping
+      // offset - Offset from the addr where the starting point of content
+      mem = mmap(NULL, length, PROT_READ|PROT_WRITE, MAP_PRIVATE, fd, 0);
+      if(mem == MAP_FAILED) {
+          err(1, "mmap");
+      }
+      process(mem, length);
+  }
+
+}
+
+Code Analysis
+- The code takes a formatted input of "Content-Length: xx" where xx is number but total size of the input should be less than 256.
+  Then, atoi() extracts only xx part and store it into int length variable.
+ : "Content-Length: 10" -> Ok
+ : "Content-Length:10" -> Not OK. "Invalid header" error output
+- If length is less than buffer size (1024), continue with process(buf, length)
+- If length is greater than buffer size(1024)
+  a. getrand(char **path) 
+    - Create a random filename by using a environment variable TEMP, pid, and random 6 characters
+    - By using the random filename, create and open the file in RW mode with 600 permission, unlink the file(the file will exisit
+      until the current process releases the file), and return file descriptor
+  b. while(blue >0) { ... blue -= pink;}
+    - Continuous read buf size(1024) bytes from stdin and write the content into file descriptor provided by getrand() until it reads
+      length bytes
+  c. mmap()
+    - Create a private memory space of the calling process <= Used as dynamic buffer space
+    - Call process(mem, length);
