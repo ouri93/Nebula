@@ -1,0 +1,44 @@
+
+
+local socket = require("socket")
+local server = assert(socket.bind("127.0.0.1", 50001))
+
+function hash(password)
+        -- Attack #1: Directly break the hash with rainbow table
+        -- Attack #2: Exploit io.popen() vulnerability - OS Command injection
+        -- io.popen(command, mode) - Creates a pipe and executes a command
+        -- ".." does string concatenation in lua
+        -- io.popen() reads password given and does sha1sum
+        -- Lua vulnerability: https://seclists.org/fulldisclosure/2014/May/128
+        prog = io.popen("echo "..password.." | sha1sum", "r")
+        data = prog:read("*all") -- *all means "reads the whole file"
+        prog:close()
+
+        -- string.sub(s, i [,j]) - Returns the substring of s that starts at
+        -- i and continues untile j
+        -- sha1sum creates 160-bit hash (40 hex characters)
+        data = string.sub(data, 1, 40)
+
+        return data
+end
+
+
+while 1 do
+        local client = server:accept()
+        client:send("Password: ")
+        client:settimeout(60)
+        local line, err = client:receive()
+        if not err then
+                print("trying " .. line) -- log from where ;\
+                local h = hash(line)
+                -- ~= means not equal
+                if h ~= "4754a4f4bd5787accd33de887b9250a0691dd198" then
+                        client:send("Better luck next time\n");
+                else
+                        client:send("Congrats, your token is 413**CARRIER LOST**\n")
+                end
+
+        end
+
+        client:close()
+end
