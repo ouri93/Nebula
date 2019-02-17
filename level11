@@ -275,9 +275,11 @@ setuid32(1012)                          = 0
 exit_group(256)                         = ?
 
 
-- Privilege drop to level11 occurs after mmap() call. So this time we attack getrand() which generates a randome file and before
-the mmap() call. When the process creates a random file, we write level11 user's public ssh key into the randmo file and then create 
-a symbolic link to /home/flag11/.ssh/authorized_keys.
+- Based on the above strace, flag11 user privilege drops to level11 after mmap() call. So this time we attack getrand() 
+which generates a randome file, which occurs before the mmap() call. To do this, we predict the randome file name which getrand() will
+create. Then we create a symbolic link to /home/flag11/.ssh/authorized_keys with the privilege of level11. Later, when we run programs
+like "./attkssh | /home/flag11/flag11", flag11 program will write buffer content (level11's public key) into the temp file where getrand()
+creates. Ultimately this is like falg11 user fill /home/flag11/.ssh/authorized_keys with the level11's public key.
 
 ## Generate SSH public for level11
 level11@nebula:~$ ssh-keygen
