@@ -1,0 +1,102 @@
+Question URL: https://exploit.education/nebula/level-14/
+
+Source Code: None
+
+Program analysis
+a. With /home/flag14/flag14 program, level14 user has group ownership and token file is owned by level14
+level14@nebula:~$ cd /home/flag14
+level14@nebula:/home/flag14$ ls -al
+total 17
+drwxr-x--- 1 flag14  level14   80 2019-02-18 18:30 .
+drwxr-xr-x 1 root    root      80 2012-08-27 07:18 ..
+...
+-rwsr-x--- 1 flag14  level14 7272 2011-12-05 18:59 flag14
+...
+-rw------- 1 level14 level14   37 2011-12-05 18:59 token
+
+level14@nebula:/home/flag14$ more token
+857:g67?5ABBo:BtDA?tIvLDKL{MQPSRQWW.
+
+b. Running flag14 without any parameter provides program use help. 
+We need to provide "-e" option with Input to encrypt.
+level14@nebula:/home/flag14$ ./flag14
+./flag14
+        -e      Encrypt input
+
+c. Playing with the program and find a pattern
+- It seems the program prints current index character + index where index starts 0 and increase by one per iteration.
+eg1 Input: aaa => a+0: a, a+1: b, a, a+2: c
+eg2 Input: abc=> a, a+0: a, b+1: c, c, c+2:3
+
+level14@nebula:/home/flag14$ ./flag14 -e
+aaaaaaaaaa
+abcdefghij
+^C
+level14@nebula:/home/flag14$ ./flag14 -e
+abcdefghij
+acegikmoqs^C
+
+Exploit code:
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+
+int main(){
+    char bufin[1024];
+    char bufen[1024];
+    gets(bufin);
+
+    int len = strlen(bufin);
+    fprintf(stdout, "Length: %d Content: %s\n", len, bufin);
+
+    int i=0;
+    int j=len;
+    while(i!=j){
+       bufen[i] = bufin[i]-i;
+       printf("%c:%c\n", bufin[i], bufen[i]);
+       i++;
+    }
+    bufen[i+1] = (char)'\x00';
+
+    printf("Plaintext: %s\n", bufin);
+    printf("Ciphertext: %s\n", bufen);
+}
+
+
+level14@nebula:~$ ./a.out
+857:g67?5ABBo:BtDA?tIvLDKL{MQPSRQWW.
+Length: 36 Content: 857:g67?5ABBo:BtDA?tIvLDKL{MQPSRQWW.
+Plaintext: 857:g67?5ABBo:BtDA?tIvLDKL{MQPSRQWW.
+Ciphertext: 8457c118-887c-4e40-a5a6-33a25353165
+
+level14@nebula:~$ ssh flag14@127.0.0.1
+
+      _   __     __          __
+     / | / /__  / /_  __  __/ /___ _
+    /  |/ / _ \/ __ \/ / / / / __ `/
+   / /|  /  __/ /_/ / /_/ / / /_/ /
+  /_/ |_/\___/_.___/\__,_/_/\__,_/
+
+    exploit-exercises.com/nebula
+
+
+For level descriptions, please see the above URL.
+
+To log in, use the username of "levelXX" and password "levelXX", where
+XX is the level number.
+
+Currently there are 20 levels (00 - 19).
+
+
+flag14@127.0.0.1's password:
+Welcome to Ubuntu 11.10 (GNU/Linux 3.0.0-12-generic i686)
+
+ * Documentation:  https://help.ubuntu.com/
+New release '12.04 LTS' available.
+Run 'do-release-upgrade' to upgrade to it.
+
+flag14@nebula:~$ id
+uid=985(flag14) gid=985(flag14) groups=985(flag14)
+flag14@nebula:~$ getflag
+You have successfully executed getflag on a target account
+flag14@nebula:~$
