@@ -1,0 +1,63 @@
+Question URL: https://exploit.education/nebula/level-17/
+
+Source Code:
+# pickle - package for serializing and de-serializing a Python object structure
+import os
+import pickle
+import time
+import socket
+import signal
+
+# signal.signal(signal_num, handler) - SIGCHLD signal will be handled by the
+# specified handler.
+# signal.SIGCHLD: When a stopped process is continued, a SIGCHLD singal may
+# be generated for its parent process, unless the parent process has set the
+# SA_NOCLDSTOP flag.
+# signal.SIG_IGN: Standard signal handler, which will simply ignore the
+# given signal
+signal.signal(signal.SIGCHLD, signal.SIG_IGN)
+
+def server(skt):
+        # socket.recv(bufsize[, flags])
+        # Receive data from the socket. The return value is a string representing the data received. 
+        # The maximum amount of data to be received at once is specified by bufsize.
+        line = skt.recv(1024)
+
+        # pickle.loads(bytes_object, *, fix_imports=True, encoding="ASCII", errors="strict")
+        # Read a pickled object hierarchy from a bytes object and return the reconstituted object hierarchy 
+        # specified therein. The protocol version of the pickle is detected automatically, so no protocol 
+        # argument is needed. Bytes past the pickled object’s representation are ignored.
+        obj = pickle.loads(line)
+
+        for i in obj:
+                clnt.send("why did you send me " + i + "?\n")
+
+skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+skt.bind(('0.0.0.0', 10007))
+skt.listen(10)
+
+while True:
+        # socket.accept()
+        # Accept a connection. The socket must be bound to an address and
+        # listening for connections. The return value is a pair (conn, address)
+        #  where conn is a new socket object usable to send and receive data
+        # on the connection, and address is the address bound to the socket
+        # on the other end of the connection.
+        
+        # Server process continues accept() next client connections.
+        clnt, addr = skt.accept()
+
+        # fork() - Creates a new process by duplicating the calling process.
+        # The new process, referred to as the child, is an exact duplicate of
+        # the calling process except some.
+        # Return:
+        #  Success - PID of the child process is returned in the parent
+        #            0 is returned in the child.
+        #  Failure - -l is returned in the parent
+        #            no child process is created
+        
+        # Client process takes care of established connection
+        if(os.fork() == 0):
+                clnt.send("Accepted connection from %s:%d" % (addr[0], addr[1]))
+                server(clnt)
+                exit(1)
