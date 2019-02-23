@@ -78,6 +78,7 @@ c. From the child process, pickle.loads() function de-serializes(unpickle) recei
      clnt.send("why did you send me " + i + "?\n")
 
 Vulnerabilty and exploit plan
+Ref: https://stackoverflow.com/questions/38307636/can-anyone-explain-me-the-example-of-an-exploit-in-python-s-pickle-module
 a. pickle vulnerability
 - When pickle is instantiated, __reduce__ method (constructor) is called. The first argument to __reduce__ is a callable, 
 that is, a function. The next argument is a tuple of arguments for __reduce__. In below example, os.system is the first argument
