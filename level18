@@ -160,3 +160,43 @@ int main(int argc, char **argv, char **envp)
 
   return 0;
 }
+
+What is ASLR?
+Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
+against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
+
+--------------------------------------------------------------------------------------------------------------
+** checksec.sh (https://github.com/RobinDavid/checksec/blob/master/checksec.sh) **
+ - checksec.sh is a bash scrip to check executable properties like (PIE, RELRO, PaX, Canaries, ASLR).
+
+level18@nebula:~$ ./checksec.sh --file /home/flag18/flag18
+RELRO           STACK CANARY      NX            PIE             RPATH      RUNPATH      FILE
+Partial RELRO   Canary found      NX enabled    No PIE          No RPATH   No RUNPATH   /home/flag18/flag18
+
+level18@nebula:~$ ./checksec.sh --fortify-file /home/flag18/flag18
+* FORTIFY_SOURCE support available (libc)    : Yes
+* Binary compiled with FORTIFY_SOURCE support: Yes
+
+ ------ EXECUTABLE-FILE ------- . -------- LIBC --------
+ FORTIFY-able library functions | Checked function names
+ -------------------------------------------------------
+ fprintf_chk                    | __fprintf_chk
+ fprintf_chk                    | __fprintf_chk
+ fgets                          | __fgets_chk
+ fgets                          | __fgets_chk
+ sprintf_chk                    | __sprintf_chk
+ sprintf_chk                    | __sprintf_chk
+ asprintf                       | __asprintf_chk
+ asprintf                       | __asprintf_chk
+
+SUMMARY:
+
+* Number of checked functions in libc                : 75
+* Total number of library functions in the executable: 92
+* Number of FORTIFY-able functions in the executable : 8
+* Number of checked functions in the executable      : 4
+* Number of unchecked functions in the executable    : 4
+--------------------------------------------------------------------------------------------------------------
+
+Ref: http://phrack.org/issues/67/9.html
+http://www.cis.syr.edu/~wedu/Teaching/cis643/LectureNotes_New/Format_String.pdf
