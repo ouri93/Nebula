@@ -198,5 +198,12 @@ SUMMARY:
 * Number of unchecked functions in the executable    : 4
 --------------------------------------------------------------------------------------------------------------
 
-Ref: http://phrack.org/issues/67/9.html
-http://www.cis.syr.edu/~wedu/Teaching/cis643/LectureNotes_New/Format_String.pdf
+Ref: 
+tseo: https://www.win.tue.nl/~aeb/linux/hh/formats-teso.html
+Format string 101: https://www.hackerschool.org/HS_Boards/data/Lib_system/The_Mystery_of_Format_String_Exploitation.pdf
+Format string exploitation: https://crypto.stanford.edu/cs155old/cs155-spring08/papers/formatstring-1.2.pdf
+
+Print format string options: https://en.wikipedia.org/wiki/Printf_format_string
+General format string: http://www.cis.syr.edu/~wedu/Teaching/cis643/LectureNotes_New/Format_String.pdf
+Phrack: http://phrack.org/issues/67/9.html
+
