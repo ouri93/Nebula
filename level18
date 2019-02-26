@@ -198,7 +198,30 @@ SUMMARY:
 * Number of unchecked functions in the executable    : 4
 --------------------------------------------------------------------------------------------------------------
 
+** Stack Top and Bottom **
+High Address |            |
+             |____________| Stack BOTTOM
+             |  params    |
+             |____________|
+             |  rtn addr  |   |
+             |____________|   | Stack grows downward
+             | saved ebp  |   v
+   %esp ---> |____________| Stack TOP
+             |            |
+Low Address  |            |
+
+** rtn addr: Next instruction address within caller function
+** saved ebp: Base address of caller. %ebp points to the start of current stack frame. When the current stack frame is done, saved ebp
+   is saved to %ebp.
+** %esp(Stack Pointer): Always points to the top of the current stack frame
+** %ebp(Frame Pointer or Base pointer): points to the start of the stack frame and does not move 
+                                        for the duration of the subroutine call.  
+
+** The format function internally maintains a pointer to the stack location of the current format parameter. format string, %08x, 
+will increase format function's internal stack pointer toward the top of the stack, lower address.
+
 Ref: 
+Buffer Overflow 101: https://www.coengoedegebure.com/buffer-overflow-attacks-explained/
 tseo: https://www.win.tue.nl/~aeb/linux/hh/formats-teso.html
 Format string 101: https://www.hackerschool.org/HS_Boards/data/Lib_system/The_Mystery_of_Format_String_Exploitation.pdf
 Format string exploitation: https://crypto.stanford.edu/cs155old/cs155-spring08/papers/formatstring-1.2.pdf
