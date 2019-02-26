@@ -218,7 +218,8 @@ Low Address  |            |
                                         for the duration of the subroutine call.  
 
 ** The format function internally maintains a pointer to the stack location of the current format parameter. format string, %08x, 
-will increase format function's internal stack pointer toward the top of the stack, lower address.
+will increase format function's internal stack pointer toward the top of the stack, lower address. Therefore each %08x format string 
+keeps moving toward Stack TOP (Lower address) and some point it will overwrite Return address, saved ebp and so on.
 
 Ref: 
 Buffer Overflow 101: https://www.coengoedegebure.com/buffer-overflow-attacks-explained/
