@@ -217,10 +217,13 @@ Low Address  |            |
 ** %ebp(Frame Pointer or Base pointer): points to the start of the stack frame and does not move 
                                         for the duration of the subroutine call.  
 
-** The format function internally maintains a pointer to the stack location of the current format parameter. format string, %08x, 
+******* Printf and Printf's internal stack pointer *******
+- The format function internally maintains a pointer to the stack location of the current format parameter. format string, %08x, 
 will increase format function's internal stack pointer toward the top of the stack, lower address. Therefore each %08x format string 
 keeps moving toward Stack TOP (Lower address) and some point it will overwrite Return address, saved ebp and so on.
- ** How Printf works with internal stack pointer? https://oded.blog/2017/05/24/printf/
+- How Printf works with internal stack pointer? https://oded.blog/2017/05/24/printf/
+- We can not move the stack pointer byte-wise, instead we move the format string itself, so that it lies on a four-byte boundary 
+to the stack pointer and we can reach it with a multiple of four-byte pops
 
 
 Ref: 
