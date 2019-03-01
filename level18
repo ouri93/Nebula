@@ -164,6 +164,9 @@ int main(int argc, char **argv, char **envp)
 What is ASLR?
 Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
 against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
+* How to disable ASLR?
+    $sudo -s
+    # echo 0 | tee /proc/sys/kernel/randomize_va_space
 
 What is FORTIFY_SOURCE? (Ref: https://stackoverflow.com/tags/fortify-source/info)
 FORTIFY_SOURCE is a GCC and GLIBC security feature that attempts to detect certain classes of buffer overflows. 
