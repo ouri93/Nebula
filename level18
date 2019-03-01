@@ -165,6 +165,25 @@ What is ASLR?
 Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
 against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
 
+What is FORTIFY_SOURCE? (Ref: https://stackoverflow.com/tags/fortify-source/info)
+FORTIFY_SOURCE is a GCC and GLIBC security feature that attempts to detect certain classes of buffer overflows. 
+Its enabled by default on most Linux platforms. When using the FORTIFY_SOURCE option, the compiler will insert 
+code to call "safer" variants of unsafe functions if the compiler can deduce the destination buffer size. 
+The unsafe functions include memcpy, mempcpy, memmove, memset, stpcpy, strcpy, strncpy, strcat, strncat, sprintf, 
+snprintf, vsprintf, vsnprintf, and gets.
+The option can be turned off with -D_FORTIFY_SOURCE=0 or -U_FORTIFY_SOURCE. However, its usually not appropriate 
+to disable FORTIFY_SOURCE in production software.
+
+Jakub Jelinek provided the GCC patch for FORTIFY_SOURCE back in 2004. The documentation for _FORTIFY_SOURCE is 
+located in the "feature test macro" man page.
+
+FORTIFY_SOURCE provides two countermeasures against fmt strings.
+  1)   Format strings containing the %n specifier may not be located at a
+       writeable address in the memory space of the application.
+
+  2)   When using positional parameters, all arguments within the range 
+       must be consumed. So to use %7$x, you must also use 1,2,3,4,5 and 6.
+
 --------------------------------------------------------------------------------------------------------------
 ** checksec.sh (https://github.com/RobinDavid/checksec/blob/master/checksec.sh) **
  - checksec.sh is a bash scrip to check executable properties like (PIE, RELRO, PaX, Canaries, ASLR).
