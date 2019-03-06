@@ -162,11 +162,26 @@ int main(int argc, char **argv, char **envp)
 }
 
 What is ASLR?
-Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
+- Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
 against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
+- With ASLR, stack,heap, and library addresses keep changing per execution.
+ : Run  "$ cat /proc/self/maps" command multiple times, you can see 
+- Fully utilize ASLR, you must complile your code with Position Independent Executable"-pie -fPIE"
+
 * How to disable ASLR?
+  : If ASLR is enabled, the value of /proc/sys/kernel/randomize_va_space is 2. 0 means disabling ASLR
     $sudo -s
     # echo 0 | tee /proc/sys/kernel/randomize_va_space
+** Data Execution Protection(DEP) and ASLR are the two pilars of modern exploit mitigation technologies.
+** DEP remvoes executable capability from Heap and Stack. (No segment of memory should ever be Writable and
+Executable at the same time) **
+** DEP bypassing - Use Return Oriented Programming (ROP) ROP is a technique in exploitation to reuse existing code
+gadgets in a target binary as a method to bypass DEP **
+** What is Gadget in DEP?
+  - A sequence of meaningful instructions typically followed by a return instruction
+  - Usually multiple gadgets are chained together to compute malicious actions like shellcode does
+  - These chains are called ROP Chains
+
 
 What is FORTIFY_SOURCE? (Ref: https://stackoverflow.com/tags/fortify-source/info)
 FORTIFY_SOURCE is a GCC and GLIBC security feature that attempts to detect certain classes of buffer overflows. 
@@ -247,6 +262,17 @@ keeps moving toward Stack TOP (Lower address) and some point it will overwrite R
 - We can not move the stack pointer byte-wise, instead we move the format string itself, so that it lies on a four-byte boundary 
 to the stack pointer and we can reach it with a multiple of four-byte pops
 
+====================================================================================================
+Solution from https://www.voidsecurity.in/2012/09/exploit-exercise-format-string.html
+- Out of my knowledge.. just try to understand how it works. 
+- Three protections used in the code
+  1. FORTIFY_SOURCE protection - This solution follows A Eulogy for Format Strings of Phrack to bypass this protection
+  2. Address Space Layout Randomization (ASLR)- This solution disable ASLR only for debugging purpose and enable it when a working exploit 
+     is ready. No effect to exploit
+  3. libc randomization - Libc randomization can be disabled using resource limit in case needed. No effect to exploit
+
+
+
 
 Ref: 
 Buffer Overflow 101: https://www.coengoedegebure.com/buffer-overflow-attacks-explained/
@@ -257,4 +283,6 @@ Format string exploitation: https://crypto.stanford.edu/cs155old/cs155-spring08/
 Print format string options: https://en.wikipedia.org/wiki/Printf_format_string
 General format string: http://www.cis.syr.edu/~wedu/Teaching/cis643/LectureNotes_New/Format_String.pdf
 Phrack: http://phrack.org/issues/67/9.html
+
+Security Lecture: http://security.cs.rpi.edu/courses/binexp-spring2015/
 
