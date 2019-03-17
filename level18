@@ -166,10 +166,11 @@ What is ASLR?
 against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
 - With ASLR, stack,heap, and library addresses keep changing per execution.
  : Run  "$ cat /proc/self/maps" command multiple times, you can see 
-- Fully utilize ASLR, you must complile your code with Position Independent Executable"-pie -fPIE"
+- To fully utilize ASLR, you must complile your code with Position Independent Executable"-pie -fPIE"
 
 * How to disable ASLR?
-  : If ASLR is enabled, the value of /proc/sys/kernel/randomize_va_space is 2. 0 means disabling ASLR
+  : If ASLR is enabled, the value of /proc/sys/kernel/randomize_va_space is 2. 0 means disabling ASLR. To disable ASLR,
+   use the following commands.
     $sudo -s
     # echo 0 | tee /proc/sys/kernel/randomize_va_space
 ** Data Execution Protection(DEP) and ASLR are the two pilars of modern exploit mitigation technologies.
