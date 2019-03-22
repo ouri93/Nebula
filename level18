@@ -161,6 +161,14 @@ int main(int argc, char **argv, char **envp)
   return 0;
 }
 
+What is format string?
+- Format String is the combination of string text and Format Parameters.
+ : e.g. printf("The magic number is %d\n", 1911) => "The magic number is" is string text and "%d" is format parameter.
+- Format parameters and its role within format string vulnerability
+ : %x - Read stack values
+ : %s - Read specific memory until null is met from a given address in stack
+ : %n - Write the number of written bytes so far into a specified (int *) address in a stack
+
 What is ASLR?
 - Address space layout randomization (ASLR) is a memory-protection process for operating systems (OSes) that guards 
 against buffer-overflow attacks by randomizing the location where system executables are loaded into memory.
