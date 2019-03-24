@@ -365,13 +365,43 @@ Low Address  |            |
    As secure printf, snprintf, is used, we cannot use the method used above a). However, if we use proper number of %08x and when stack
    pointer reaches at %n, it would printe the number of written bytes on 0x31414141, which is represented by AAA0. 
    The challenge here is how to write arbitrary data where AAA0 is located instead of pre-defined value.
-   For this purpose we can use '%nu' where n is the number and 'u' is format string specifier of unsigned integer.
+   For this purpose we can use '%nu' to control '%n', where n is the number and 'u' is format string specifier of unsigned integer.
    
    Example)
     unsigned char       foo[4];
     printf ("%64u%n", 7350, (int *) foo);
     
     The foo[0] will have the value '0x40', which is 64 in decimal.
+    From the example, we controlled 1-byte of '%n' (4-byte) by using '%64u'. 
+  
+  Below example shows how to write 4 bytes by writing 1-byte 4 times.
+  Example)
+         unsigned char      canary[5];
+         unsigned char      foo[4];
+
+         memset (foo, '\x00', sizeof (foo));
+            /*
+             Figure 1: Four stage overwrite of an address
+
+                00 00 00 00                41 41 41 41
+                10 00 00 00                41 41 41 41
+                10 20 00 00                00 41 41 41
+                10 20 30 00                00 00 41 41
+                10 20 30 40                00 00 00 41
+                10 20 30 40                00 00 00 41
+             */
+         strcpy (canary, "AAAA");
+
+         /* 0 * start write */
+         /* 1 */ printf ("%16u%n", 7350, (int *) &foo[0]);
+         /* 2 */ printf ("%32u%n", 7350, (int *) &foo[1]);
+         /* 3 */ printf ("%64u%n", 7350, (int *) &foo[2]);
+         /* 4 */ printf ("%128u%n", 7350, (int *) &foo[3]);
+
+         printf ("%02x%02x%02x%02x\n", foo[0], foo[1], foo[2], foo[3]);
+         printf ("canary: %02x%02x%02x%02x\n", canary[0], canary[1], canary[2], canary[3]);
+    
+    
    
    
 - How to write a specific lenght of dummy bytes to reach the destination?
