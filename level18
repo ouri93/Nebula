@@ -165,8 +165,10 @@ What is format string?
 - Format String is the combination of string text and Format Parameters.
  : e.g. printf("The magic number is %d\n", 1911) => "The magic number is" is string text and "%d" is format parameter.
 - Format parameters and its role within format string vulnerability
- : %x - Read stack values
- : %s - Read specific memory until null is met from a given address in stack
+ : %x - Read stack values. With exploits, you can re-construct stack memory(stack dump - Allow us to understand program flow, local 
+ function variables, and correct offset for exploitation). %x increase the internal stack pointer of printf toward the top of the stack.
+ : %s - Read specific memory until null is met from a given address in stack. With exploits, you can see different memory location
+ other than stack memory.
  : %n - Write the number of written bytes so far into a specified (int *) address in a stack
 
 What is ASLR?
@@ -322,6 +324,56 @@ Low Address  |            |
    In the above example, if we use %n instead of %s, we can write a desired value into the target address. in our example, 0xabcdefff.
    As a trick, to avoid long format string for big value to write, width specification can be used.e.g. %10000x
 
+- Format string alignment
+ : If you cannot reach the exact format string boundary by using %08x (4-byte), you have to pad the format string, by prepending one,
+ two, or three junk characters.
+ e.g.) printf ("\x10\x01\x48\x08_%08x.%08x.%08x.%08x.%08x.|%s|"); If the address of format string is 0xabcdabcd at stack and you could
+ reach 0xabcdabcb (2-byte away from the address of format string (0xabcdabcd), you can reach the boundary by prepending two junk 
+ characters. printf ("AA\x10\x01\x48\x08_%08x.%08x.%08x.%08x.%08x.|%s|");
+ 
+- Overwriting of arbitrary memory in the writeable process space with arbitrary data
+ : Instrcution Pointer(IC - also called Program Counter(PC)). PC(IC) is a CPU register which stores the address of the next executing 
+ instruction. Below we show different ways of overwriting Instruction Pointer and taking the control to the attcker supplied address
+ by using format string vulnerability
+ a) Similar to stack overflow
+  {
+       char      outbuf[512];
+       char      buffer[512];
+
+       sprintf (buffer, "ERR Wrong command: %400s", user);
+       sprintf (outbuf, buffer);
+  }
+
+  By supplying a special format string we are able to circumvent the `%400s' limitation:
+
+      "%497d\x3c\xd3\xff\xbf<nops><shellcode>" <= Whole format string size is less than 400 bytes.
+    : %497d + "ERR Wrong command: " = 497 + 19 = 516, which is 4-byte bigger than outbuf and overwrites return address to 0xbfffd33c,
+      where 0xbfffd33c is the address of exploiting code.
+      
+  b) Using pure format strings
+   : Using format string vulnerability to write arbitrary data (Using %n)
+   e.g. - Simple example
+   {
+      char     buffer[512];
+
+      snprintf (buffer, sizeof (buffer), user);
+      buffer[sizeof (buffer) - 1] = '\0';
+   }
+   
+   User Input: "AAA0_%08x.%08x.%08x.%08x.%08x.%08x.%08x.%08x.%n"
+   
+   As secure printf, snprintf, is used, we cannot use the method used above a). However, if we use proper number of %08x and when stack
+   pointer reaches at %n, it would printe the number of written bytes on 0x31414141, which is represented by AAA0. 
+   The challenge here is how to write arbitrary data where AAA0 is located instead of pre-defined value.
+   For this purpose we can use '%nu' where n is the number and 'u' is format string specifier of unsigned integer.
+   
+   Example)
+    unsigned char       foo[4];
+    printf ("%64u%n", 7350, (int *) foo);
+    
+    The foo[0] will have the value '0x40', which is 64 in decimal.
+   
+   
 - How to write a specific lenght of dummy bytes to reach the destination?
 %1$*479$ %1$*2848$ %1073741824$
 
