@@ -183,6 +183,24 @@ against buffer-overflow attacks by randomizing the location where system executa
    use the following commands.
     $sudo -s
     # echo 0 | tee /proc/sys/kernel/randomize_va_space
+    
+* How to disable Canary protection?
+ : Use "-no-stack-protection" option.
+ e.g. gcc overflow.c -o overflow -fno-stack-protector
+
+* How to disable DEP?
+ : Use "-z execstack" option
+ :e.g. gcc vuln.c -o vuln_disable_dep -z execstack
+ 
+* How to disable PIE?
+ :  Use "-no-pie" option
+ :e.g. gcc vuln.c -o vuln_disable_pie -no-pie
+ 
+* Disable all of protection mechanisms listed above (warning: for local testing only):
+ :gcc vuln.c -o vuln_disable_all -fno-stack-protector -z execstack -no-pie
+
+*** For 32-bit machine, additionally use "-m32" option ***
+
 ** Data Execution Protection(DEP) and ASLR are the two pilars of modern exploit mitigation technologies.
 ** DEP remvoes executable capability from Heap and Stack. (No segment of memory should ever be Writable and
 Executable at the same time) **
@@ -374,8 +392,8 @@ Low Address  |            |
     The foo[0] will have the value '0x40', which is 64 in decimal.
     From the example, we controlled 1-byte of '%n' (4-byte) by using '%64u'. 
   
-  Below example shows how to write 4 bytes by writing 1-byte 4 times.
-  Example)
+   Below example shows how to write 4 bytes by writing 1-byte 4 times.
+   Example)
          unsigned char      canary[5];
          unsigned char      foo[4];
 
@@ -400,10 +418,39 @@ Low Address  |            |
 
          printf ("%02x%02x%02x%02x\n", foo[0], foo[1], foo[2], foo[3]);
          printf ("canary: %02x%02x%02x%02x\n", canary[0], canary[1], canary[2], canary[3]);
+
+    ** Memory structure with above 4-stage writing
+    High Address |            | Stack TOP
+                 |____________| 
+       canary[4] |    '\0'    |
+       canary[3] |    'A'     |_____________________________
+       canary[2] |    'A'     |____________________|'\x0'  |
+       canary[1] |    'A'     |______________'\x0' |'\x0'  | 
+       canary[0] |____'A'_____|______|'\x0' |'\x0' |'\x0'  |
+          foo[3] |    '\x0'   |'\x0' |'\x0' |'\x0' |'\x80' |
+          foo[2] |    '\x0'   |'\x0' |'\x0' |'\x40'|
+          foo[1] |    '\x0'   |'\x0' |'\x20'|
+          foo[0] |    '\x0'   |'\x10'|      |
+                 |------------|-------------
+                 | .......... | Stg1  Stg2   Stg3   Stg4            
+                 |____________|
+                 |            |
+    Low Address  | (initial)  |
     
-    
-   
-   
+    As you can see, at the first stage writing, decimal number 16(0x00000010) will be written to next 4 byte (as we are using int *) 
+    from the beginning of foo[0] address. Similarily, at the second stage writing, decimal number 32(0x00000020) will be written to 
+    next 4 bytes from the beginning of foo[1] address.... Finally at the stage 4 writing, decimal number 128 (0x00000080) will be written
+    to next 4 bytes from the beginning of foo[3] address. From the stage 2 writing, it trespasses the address space of canary array by
+    one byte and overwrite the byte with '\x0'.
+    Because of this, the output will be
+     : "10204080" and "canary: 00000041"
+
+    Above 4 lines of printf can be written in a one like below    
+    : printf ("%16u%n%16u%n%32u%n%64u%n", 1, (int *) &foo[0], 1, (int *) &foo[1], 1, (int *) &foo[2], 1, (int *) &foo[3]);
+    The only difference is the written bytes are accumulated from the beginning. Therefore the width number becomes 16u, 16u(32=16+16), 
+    32u (64=32+32), and 64u(128 = 64+64)
+
+
 - How to write a specific lenght of dummy bytes to reach the destination?
 %1$*479$ %1$*2848$ %1073741824$
 
