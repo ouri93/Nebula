@@ -533,12 +533,69 @@ Variation of exploitation
 Brute forcing
 - The challenges with buffer overflow and/or format string exploitation is to find right offset (what to write where)
 - Finding multiple necessary offsets increase the complexity enormously.
-- Here two very different methods are explained
+- Here two very different methods are explained; 'Response Based Brute Force' and 'Blind Brute Forcing'
 
 1. Response based Brute force
+: Basic idea - By observing the printed format replies, determine the return address (retaddr) and the return address location (retloc)
+a. Calculate the distance of fromat string from the current position
+ - Use "AAAABBBB|stackpop|%08x|" where stackpop will be increased until it hits the beginning of format string
+  : e.g. If the output of given format string, "AAAABBBB|%u%u%u%u%u%u%u%u|%08x|" looks like this;
+   "AAAABBBB|983217938177639561760134608728913021|41414141|", this means that a give format string hits the beginning of format string
+   and the format string is 32-byte away from the Stack's "Address of format string".
+   41414141 is the hexadeciaml representation of 'AAAA'. %u*8 printed out "983217938177639561760134608728913021" and %8x printed the 
+   hex value of 'AAAA' according to the format of %8x.
+ - If you cannot reach to the pattern of 'AAAA', this means
+  i) alignment is not on a four byte boundary
+   : Simplay prepend one, two, or three dummy bytes to format string
+    e.g. if two bytes are short to be algined, add two 'CC' like this -> AAAABBBBCC|stackpop|%08x|
+  ii). The distance to the format string is too big to reach (e.g. format string is located at heap)
+  
+b. Once you have the distance and the alignment, you can start brute forcing the format string buffer address.
+ - Use this to figure out if a given address is hitting format string or target buffer
+   "addr|stackpop|______________________________%%|%s|"  <= addr and stackpop will no to anything harmful.
+     |                            ^
+     |____________(1)_____________|
+ - Two possible scenarios
+  i) "addr" directly points into our format string (two '%' characters) and its output
+   "garbage|___________________________%|______%%|%s||" <= %% converts to %, then %%|%s| is inserted by the %s of given format string
+   ** garbage consists out of the 'addr' and 'stackpop' output
+   
+  ii) (Didn't understand this!!) "addr" accidently points into target buffer (only one '%' characters) and its output
+   - This allows us to exactly predict the target buffer address which is useful when the format string buffer is in the heap itself.
+   "garbage|___________________________%|______%||"   <= Only one '%' is visible, since it was converted by the format function
+   ** garbage consists out of the 'addr' and 'stackpop' output
 
 2. Blind Brute forcing
+ : Not straight forward method, relatively complex and only useful for special situations.
+ : Basic idea is to measure the time it takes for the remote computer to process the format string.
 
+--------------------------------------------------------------------------------------------------------------
+Format string special exploits with more straight forward and most reliable
+
+1. Alternative targets (Alternative overwritable places with format string exploits)
+- Unlike stack overflow where you can only overwrite the return address, with format string you can write anywhere into the memory,
+  allowing us to modify the entire writable process space. Here are the alternative overwritable target addresses.
+
+  1.1 GOT overwrite
+
+
+  1.2 DTORS
+
+  1.3 C library hooks
+
+  1.4 __atexit structures
+
+  1.5 function pointers
+
+  1.6 jupbuf's
+
+2. Return into LibC
+
+3. Multiple Print
+
+4. Format string within the Heap
+
+5. Special considerations
 - How to write a specific lenght of dummy bytes to reach the destination?
 %1$*479$ %1$*2848$ %1073741824$
 
