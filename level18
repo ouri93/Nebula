@@ -572,9 +572,9 @@ b. Once you have the distance and the alignment, you can start brute forcing the
 --------------------------------------------------------------------------------------------------------------
 Format string special exploits with more straight forward and most reliable
 
-1. Alternative targets (Alternative overwritable places with format string exploits)
+1. Alternative targets (Alternatively overwritable places with format string exploits)
 - Unlike stack overflow where you can only overwrite the return address, with format string you can write anywhere into the memory,
-  allowing us to modify the entire writable process space. Here are the alternative overwritable target addresses.
+  allowing us to modify the entire writable process space. Here are the alternatively overwritable target addresses.
 
   1.1 GOT overwrite
 
