@@ -1,0 +1,54 @@
+About Executable and Linking Format (ELF)
+- Ref
+  : https://www.intezer.com/executable-linkable-format-101-part1-sections-segments/
+  
+a. What is ELF?
+- Standard File format (binary format) which defines the structure of Binaries(executables), Object files, Libraries, and Core Dumps.
+- Typically the output of compiler or linker
+- Used when a executable is executed, ELF is referenced for WHAT SHOULD BE PUT WHERE
+
+b. Actual use case of ELF
+
+Source file on DISK => (Compilation) => Output: A Binary file on DISK (e.g. a.out) => Loader loading the executable on the memory 
+by referencing the EFL file.
+The executable file on DISK has ELF file format where it has three major components:
+ - ELF Header, Sections, Segments
+
+c. ELF File format - 1000-foot view
+- ELF file format has three major components; ELF Header, Sections, Segments
+
+ i. ELF Header - Contains the general information of a binary
+ ii. Sections - Sections comprise all information needed for linking a target object file in order to build a working executable.
+                It’s important to highlight that sections are needed on LINKTIME but they are not needed on runtime.
+                
+                Some common sections are the following:
+                  .text: code.
+                  .data: initialised data.
+                  .rodata: initialised read-only data.
+                  .bss: uninitialized data.
+                  .plt: PLT (Procedure Linkage Table) (IAT equivalent).
+                  .got: GOT entries dedicated to dynamically linked global variables.
+                  .got.plt: GOT entries dedicated to dynamically linked functions.
+                  .symtab: global symbol table.
+                  .dynamic: Holds all needed information for dynamic linking.
+                  .dynsym: symbol tables dedicated to dynamically linked symbols.
+                  .strtab: string table of .symtab section.
+                  .dynstr: string table of .dynsym section.
+                  .interp: RTLD embedded string.
+                  .rel.dyn: global variable relocation table.
+                  .rel.plt: function relocation table.
+                  
+ iii. Segments (Also called Program Header) - Segments break down the structure of an ELF binary into suitable chunks to prepare 
+               the executable to be loaded into memory. 
+               In contrast with Section Headers, Program Headers are NOT NEEDED on linktime.
+               
+               Only PT_LOAD segments get loaded into memory. Therefore, every other segment is mapped within the memory range 
+               of one of the PT_LOAD segments.
+ ** Sections vs. Segments
+  - Sections gather all needed information to link a given object file and build an executable, while Program Headers split 
+    the executable into segments with different attributes, which will eventually be loaded into memory.
+  - Segments group sections by attributes into single segments in order to make the loading process of the executable 
+    more efficient, instead of loading each individual section into memory.
+  - Segments' offsets and virtual addresses must be congruent modulo the page size and their p_align field must be a multiple 
+    of the system page size.
+    * Refer the image of Sections_vs_Segments.png
