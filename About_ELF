@@ -57,3 +57,158 @@ c. ELF File format - 1000-foot view
   - Segments' offsets and virtual addresses must be congruent modulo the page size and their p_align field must be a multiple 
     of the system page size.
     * Refer the image of Sections_vs_Segments.png
+-----------------------------------------------------------------------
+
+ a. What are Symbols in ELF?
+  (Ref: https://www.intezer.com/executable-linkable-format-101-part-2-symbols/)
+  - Symbols are symbolic reference to some type of data or code by names such as variables or functions
+  - Each Symbol within Symbol table is a struct data type of Elf64_Sym, where it contains Symbol string name, bind and type info, 
+    symbol visibility(local or global), Symbol value, symbol size.
+  - Symbolic references in machine code get translated into OFFSETS and ADDRESSES on the compilation process
+  - Compiler also exports symbolic information and provides an interface for local and external ELF objects to access it.
+  - Who use Symbolic information (Symbol table)?
+    i) Linkers - Linkers usually interact with a Symbol Table in order to match/reference/modify a given symbol inside an ELF object 
+     at linktime.
+    ii) Debuggers - Debuggers reference Symbol table to identify functions or variables by name
+    iii) Malware - Malware also interacts with symbol tables as an anti-analysis mechanism. 
+    
+ b. ELF Symbol structure
+  : Each Symbol is represented as an instance of an Elfxx_Sym structure inside a given Symbol table.
+ 
+   typedef struct {
+        Elfxx_Word      st_name; <- Index in string table of symbol name
+        unsigned char   st_info; <- Symbol bind and type attributes info. Symbol bindig scope(local, global) and type(data-variables, code-functions, section) info
+        unsigned char   st_other;<- Symbol visibility info such as visile only in local, visible by other objects but can't preempted, hidden)
+        Elfxx_Half      st_shndx;<- Section index associated with a given symbol
+        Elfxx_Addr      st_value;<- Specifies the symbol value for a given Symbol Table entry
+        Elfxx_Xword     st_size; <- Symbol's size
+    } Elfxx_Sym;
+    ** where xx is either 32 or 64.
+ 
+ c. Symbol tables
+  - A single ELF object may contain a maximum of two Symbol Tables; .symtab (Binary's global Symbol Table) and .dynsym
+  i) Binary's global table (.symtab) 
+    : contains all symbol references in the current object
+    : has a section of .strtab (String table of .symtab) which has the same number of entries where .symtab has.
+    
+  ii) .dynsym Symbol table
+    : only holds symbols needed for Dynamic Linking (e.g. Shared objects). Dynamic Linking is the process where the linker tries to 
+      dynamically bind those external symbols at RUNTIME in order for them to be referenced safely within the context of a program
+    : .dynsym table will not be removed even if target binary has been stripped (.symtab/.strtab will be removed)
+ 
+ -----------------------------------------------------------------------
+ a. What is Relocations in ELF?
+  (Ref: https://www.intezer.com/executable-and-linkable-format-101-part-3-relocations/)
+  - Relocations is the mechanism of connecting symbolic references with their correspondent symbolic definition.
+  - During compilation process (linking phase), compiler generates relocatable objects which contain all the information required to map symbolic
+    references to its corresponding defintions. 
+  - Relocation examples
+   i) A program that adds the value of two global variable together. In order for those varaibles to be successfully referenced in 
+     the program, their addresses within the process virtual address space have to be resolved.
+   ii) If a program is calling a function from an external dependency, the address of that function will also have to be computed
+     prior to transferring control of execution to it.
+ 
+  - Three types of relocatable files:
+    i) Generic object files (*.o) 
+      - Used for static linking. 
+      - Any given symbolic definition will become part of the main executable being generated.
+      - Good: No external dependencies, Bad: Executables becomes large
+    ii) Kernal object files (*.ko)
+      - Known as Loadable Kernel Module (LKM) and loaded to the kernel as a module
+    iii) Shared object files (*.so)
+      - Linked on runtime (Dynamic linking) and shared across different processes
+ 
+ b. Relocation entries
+  - Relocation information is held in relocatble entries, located in specific relocation sections within an ELF object
+  - Elfxx_Rel and Elfxx_Rela are mutually exclusive.
+  
+    typedef struct {
+        Elfxx_Addr      r_offset; <- For a binary file, this value indicates a section offset, 
+                                  <- For a executable or shared object, the value indicates the virtual address of the storage unit 
+                                  <- affected by the relocation
+        Elfxx_Word      r_info;   <- Denotes the symbol index within a symbol table of the correspondent symbol that has to be relocated.
+    } Elfxx_Rel;
+ 
+    typedef struct {
+        Elfxx_Addr      r_offset;
+        Elfxx_Word      r_info;
+        Elfxx_Sword     r_addend; <- Specifies a constant addend to be added to compute the value to be stored in a give relocation reference.
+    } Elfxx_Rela;
+    ** where xx is either 32 or 64
+ 
+ c. Relocation Types
+  - Relocation types are architecture dependent. (To see all different relocation types, https://docs.oracle.com/cd/E23824_01/html/819-0690/chapter6-54839.html#scrolltoc)
+  - The difference between relocation types is the way to calcualte the relocated value.
+  
+  - Variables used in Calculation column
+    A: Addend of Elfxx_Rela entries.
+    B: Image base where the shared object was loaded in process virtual address space.
+    G: Offset to the GOT relative to the address of the correspondent relocation entry’s symbol.
+    GOT: Address of the Global Offset Table
+    L: Section offset or address of the procedure linkage table (PLT, .got.plt).
+    P: The section offset or address of the storage unit being relocated. retrieved via r_offset relocation entry’s field.
+    S: Relocation entry’s correspondent symbol value.
+    Z: Size of Relocations entry’s symbol.
+  
+  - Relocation type suffix reference
+    *_NONE: Neglected entry.
+    *_64: qword relocation value.
+    *_32: dword relocation value.
+    *_16: word relocation value.
+    *_8: byte relocation value.
+    *_PC: relative to program counter.
+    *_GOT: relative to GOT.
+    *_PLT: relative to PLT (Procedure Linkage Table).
+    *_COPY: value copied directly from shared object at load-time.
+    *_GLOB_DAT: global variable.
+    *_JMP_SLOT: PLT entry.
+    *_RELATIVE: relative to image base of program’s image.
+    *_GOTOFF: absolute address within GOT.
+    *_GOTPC: program counter relative GOT offset.
+ 
+  - x86 Relocation types
+     Name	       Value	Field	Calculation
+    R_386_NONE		0		None	None
+    R_386_32		2		dword	S + A
+    R_386_PC32		1		dword	S + A – P
+    R_386_GOT32		3		dword	G + A
+    R_386_PLT32		4		dword	L + A – P
+    R_386_COPY		5		None	Value is copied directly from shared object
+    R_386_GLOB_DAT	6		dword	S
+    R_386_JMP_SLOT	7		dword	S
+    R_386_RELATIVE	8		dword	B + A
+    R_386_GOTOFF	9		dword	S + A – GOT
+    R_386_GOTPC		10		dword	GOT + A – P
+    R_386_32PLT		11		dword	L + A
+    R_386_16		20		word	S + A
+    R_386_PC16		21		word	S + A – P
+    R_386_8			22		byte	S + A
+    R_386_PC8		23		byte	S + A – P
+    R_386_SIZE32	38		dword	z + A
+ 
+
+  - x86_64 Relocation types
+ 
+    Name				Value	Field	Calculation
+    R_X86_64_NONE		0		None	None
+    R_X86_64_64			1		qword	S + A
+    R_X86_64_PC32		2		dword	S + A – P
+    R_X86_64_GOT32		3		dword	G + A
+    R_X86_64_PLT32		4		dword	L + A – P
+    R_X86_64_COPY		5		None	Value is copied directly from shared object
+    R_X86_64_GLOB_DAT	6		qword	S
+    R_X86_64_JUMP_SLOT	7		qword	S
+    R_X86_64_RELATIVE	8		qword	B + A
+    R_X86_64_GOTPCREL	9		dword	G + GOT + A – P
+    R_X86_64_32			10		dword	S + A
+    R_X86_64_32S		11		dword	S + A
+    R_X86_64_16			12		word	S + A
+    R_X86_64_PC16		13		word	S + A – P
+    R_X86_64_8			14		word8	S + A
+    R_X86_64_PC8		15		word8	S + A – P
+    R_X86_64_PC64		24		qword	S + A – P
+    R_X86_64_GOTOFF64	25		qword	S + A – GOT
+    R_X86_64_GOTPC32	26		dword	GOT + A – P
+    R_X86_64_SIZE32		32		dword	Z + A
+    R_X86_64_SIZE64		33		qword	Z + A
+ 
