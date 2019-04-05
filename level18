@@ -577,7 +577,8 @@ Format string special exploits with more straight forward and most reliable
   allowing us to modify the entire writable process space. Here are the alternatively overwritable target addresses.
 
   1.1 GOT overwrite
-
+  - The GOT is a table of addresses which resides in the data section.  If any instruction in code wants to refer to a variable 
+    it refers to the GOT, whose location is known. The relative location of the GOT from the instruction in question is constant.
 
   1.2 DTORS
 
