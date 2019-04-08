@@ -577,26 +577,58 @@ Format string special exploits with more straight forward and most reliable
   allowing us to modify the entire writable process space. Here are the alternatively overwritable target addresses.
 
   1.1 GOT overwrite
-  - The GOT is a table of addresses which resides in the data section.  If any instruction in code wants to refer to a variable 
+  - The GOT is a table of addresses which resides in the data section. If any instruction in code wants to refer to a variable 
     it refers to the GOT, whose location is known. The relative location of the GOT from the instruction in question is constant.
+  - Every library fucntion used by the program has an entry in GOT that contains an address where the real function is located.
+  - First three GOT entries are reserved
+   i) GOT[0] - The address of the program's .dynamic segment. This segment holds a lot of pointers to other parts of the ELF. 
+               It basically serves as a guide for the dynamic linker to navigate the ELF
+   ii) GOT[1] - The pointer to a data structure that the dynamic linker manages. This data structure is a linked list of nodes 
+               corresponding to the symbol tables for each shared library linked with the program.
+   iii) GOT[2] - The address of the symbol resolution function within the dynamic linker. 
+  1.1.1 How does GOT work to call a function?
+   i) Before a program has used a function for the first time, the entry contains an address of the run-time-linker(rtl)
+   ii) If the function is called by the program the control is passed to the rtl and the fucntion's real address is resolved and
+      inserted into the GOT.
+   iii) Every call to that function passes the control directly to it and the rtl is not called anymore for this fucntion
+   
+  1.1.2 Format string and GOT
+   - By overwriting a GOT entry for a fucntion the program will use after the format string vulnerabilities has been exploited, we
+     can seize control and can jump to any executable address
+     
+  1.1.3 Advantage of overwriting GOT
+   - Indenpendence to envrionment variables (such as the stack) and dynamice memory allocation (healp)
+   - The address of a GOT entry is fixed per binary, so if two systems have the same binary running, then the GOT entry is always
+     at the same address
+   - Easy of use - You just run objdump and you have the address to overwrite (retloc)
 
   1.2 DTORS
+   - Binaries complied with the GNU C Compiler include a special destructor table section, called 'DTORS'
+   - DTORS are called just before the real 'exit' system call is issued, after all the common cleanup operations are done
+   - DTORS section format
+     DTORS: 0xffffffff 0x00000000 ...
+     First entry(ignored) is either the number of function pointers that follow OR minus one (0xffffffff) if the list is empty
+     At relative offset + 4, there are the addresses of the cleanup functions, termiated by a NULL address
+   - Format string and overwritting DTORS
+     : Overwrite DTORS entry of the cleanup function to the address where your shellcode exists.
 
-  1.3 C library hooks
+2. Tools
+ - Useful tools to retrieve the necessary offset
+ 2.1 ltrace, strace
+  - ltrace and strace work in a similar way: they hook library and system calls, logging their parameters and return values, 
+    as the program calls them.
+  - ltrace: Addresses of library calls and their parameters can be observed using ltrace. With this, you can quickly determine the
+    address of the format string in any process you can ptrace
+  - strace: Used to get the addresses of buffers where data is read into.
+  
+  2.2 GDB, objdump
+  - GDB:  a text based debugger, which is suited for both source level and machine code debugging.
+  - objdump: A program from the GNU binutils package, is suited to retrieve any information for a binary executable or object file,
+    such as the memory layout, the sections, or a disassembly of the main funciton. Main use is to retrieve the addresses of 
+    the GOT entries form the binary.
+    
+--------------------------------------------------------------------------------------------------------------  
 
-  1.4 __atexit structures
-
-  1.5 function pointers
-
-  1.6 jupbuf's
-
-2. Return into LibC
-
-3. Multiple Print
-
-4. Format string within the Heap
-
-5. Special considerations
 - How to write a specific lenght of dummy bytes to reach the destination?
 %1$*479$ %1$*2848$ %1073741824$
 
